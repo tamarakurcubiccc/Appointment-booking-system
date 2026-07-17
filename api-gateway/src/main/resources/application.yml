@@ -1,0 +1,112 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: api-gateway
+
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          # Explicit routes only - no automatic /SERVICE-NAME/** exposure.
+          enabled: false
+      routes:
+        # --- Blocking rule must come first: internal APIs are never reachable from outside ---
+        - id: block-internal
+          uri: forward:/blocked
+          predicates:
+            - Path=/api/internal/**
+
+        # --- user-service ---
+        - id: user-service-auth
+          uri: lb://user-service
+          predicates:
+            - Path=/api/auth/**
+        - id: user-service-users
+          uri: lb://user-service
+          predicates:
+            - Path=/api/users/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: userServiceCircuitBreaker
+                fallbackUri: forward:/fallback/user-service
+
+        # --- catalog-service ---
+        - id: catalog-service
+          uri: lb://catalog-service
+          predicates:
+            - Path=/api/services/**,/api/slots/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: catalogServiceCircuitBreaker
+                fallbackUri: forward:/fallback/catalog-service
+
+        # --- reservation-service ---
+        - id: reservation-service
+          uri: lb://reservation-service
+          predicates:
+            - Path=/api/reservations/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: reservationServiceCircuitBreaker
+                fallbackUri: forward:/fallback/reservation-service
+
+security:
+  jwt:
+    secret: ${JWT_SECRET:ZGV2LW9ubHktc2VjcmV0LWtleS1jaGFuZ2UtbWUtaW4tcHJvZHVjdGlvbi0xMjM0NTY3ODkw}
+    issuer: ${JWT_ISSUER:appointment-booking-system}
+    public-paths:
+      - /api/auth/**
+      - /actuator/**
+      - /fallback/**
+      - /blocked
+      # Not "public" - the route below answers it with 404. Listing it here means an
+      # outsider gets 404 whether or not they send a token, leaking nothing.
+      - /api/internal/**
+      # Browsing the catalog does not require a token (GET is still filtered downstream).
+      - /api/services/**
+      - /api/slots/**
+  cors:
+    # Comma-separated allow-list; override per environment with CORS_ALLOWED_ORIGINS.
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173,http://localhost:8080}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-size: 20
+        failure-rate-threshold: 60
+        wait-duration-in-open-state: 15s
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 8s
+
+management:
+  endpoints:
+    web:
+      # Only health/info are exposed. 'gateway' would let anyone enumerate the internal
+      # route table (/actuator/gateway/routes) since /actuator/** is public, and 'metrics'
+      # leaks operational detail; neither is needed at runtime.
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+logging:
+  level:
+    com.booking: INFO
+    org.springframework.cloud.gateway: INFO
