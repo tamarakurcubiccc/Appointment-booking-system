@@ -1,0 +1,67 @@
+server:
+  port: ${SERVER_PORT:8083}
+
+spring:
+  application:
+    name: reservation-service
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5434}/${DB_NAME:reservation_db}
+    username: ${DB_USER:booking}
+    password: ${DB_PASSWORD:booking}
+    hikari:
+      maximum-pool-size: 10
+      pool-name: reservation-service-pool
+
+  jpa:
+    hibernate:
+      ddl-auto: ${DDL_AUTO:update}
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
+  cloud:
+    # Since Spring Cloud 2022.0 the OpenFeign properties live under spring.cloud.openfeign.*
+    openfeign:
+      client:
+        config:
+          default:
+            connect-timeout: 3000
+            read-timeout: 5000
+            logger-level: basic
+      # Circuit breaking is handled at the gateway. Keeping it off here lets our
+      # FeignErrorDecoder propagate 404/409 as-is instead of a generic 500.
+      circuitbreaker:
+        enabled: false
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${random.uuid}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  level:
+    com.booking: INFO
