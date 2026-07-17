@@ -1,0 +1,176 @@
+# ---------------------------------------------------------------------------
+# Appointment Booking System - local development stack
+#
+#   docker compose up --build
+#
+# Entry point:  http://localhost:8080   (API Gateway)
+# Eureka UI:    http://localhost:8761
+#
+# Database-per-service: each service owns a separate PostgreSQL instance and no
+# service ever touches another service's schema.
+# ---------------------------------------------------------------------------
+name: appointment-booking
+
+x-postgres-common: &postgres-common
+  image: postgres:16-alpine
+  restart: unless-stopped
+  environment:
+    POSTGRES_USER: ${POSTGRES_USER:-booking}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-booking}
+  healthcheck:
+    # -d is required: without it pg_isready probes a database named after the
+    # user, which does not exist here. $$ escapes to a literal $ so the shell
+    # inside the container expands it.
+    test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+    interval: 10s
+    timeout: 5s
+    retries: 10
+  networks: [booking-net]
+
+x-service-common: &service-common
+  restart: unless-stopped
+  environment: &service-env
+    DB_USER: ${POSTGRES_USER:-booking}
+    DB_PASSWORD: ${POSTGRES_PASSWORD:-booking}
+    DB_PORT: 5432
+    DDL_AUTO: ${DDL_AUTO:-update}
+    EUREKA_URL: http://discovery-server:8761/eureka/
+    JWT_SECRET: ${JWT_SECRET:-ZGV2LW9ubHktc2VjcmV0LWtleS1jaGFuZ2UtbWUtaW4tcHJvZHVjdGlvbi0xMjM0NTY3ODkw}
+    JWT_ISSUER: ${JWT_ISSUER:-appointment-booking-system}
+  networks: [booking-net]
+
+services:
+
+  # ----------------------------- databases -----------------------------
+  postgres-user:
+    <<: *postgres-common
+    container_name: postgres-user
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-booking}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-booking}
+      POSTGRES_DB: user_db
+    ports: ["${USER_DB_PORT:-15432}:5432"]
+    volumes: ["postgres-user-data:/var/lib/postgresql/data"]
+
+  postgres-catalog:
+    <<: *postgres-common
+    container_name: postgres-catalog
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-booking}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-booking}
+      POSTGRES_DB: catalog_db
+    ports: ["${CATALOG_DB_PORT:-15433}:5432"]
+    volumes: ["postgres-catalog-data:/var/lib/postgresql/data"]
+
+  postgres-reservation:
+    <<: *postgres-common
+    container_name: postgres-reservation
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-booking}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-booking}
+      POSTGRES_DB: reservation_db
+    ports: ["${RESERVATION_DB_PORT:-15434}:5432"]
+    volumes: ["postgres-reservation-data:/var/lib/postgresql/data"]
+
+  # --------------------------- infrastructure ---------------------------
+  discovery-server:
+    build:
+      context: .
+      args:
+        MODULE: discovery-server
+    container_name: discovery-server
+    restart: unless-stopped
+    ports: ["8761:8761"]
+    environment:
+      EUREKA_HOSTNAME: discovery-server
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8761/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    networks: [booking-net]
+
+  api-gateway:
+    <<: *service-common
+    build:
+      context: .
+      args:
+        MODULE: api-gateway
+    container_name: api-gateway
+    # Host port is overridable so the stack still starts when something else
+    # (e.g. a local Apache/XAMPP) already occupies 8080. The gateway always
+    # listens on 8080 *inside* the network; only the published host port changes.
+    ports: ["${GATEWAY_PORT:-8080}:8080"]
+    depends_on:
+      discovery-server:
+        condition: service_healthy
+
+  # ----------------------------- services -----------------------------
+  user-service:
+    <<: *service-common
+    build:
+      context: .
+      args:
+        MODULE: user-service
+    container_name: user-service
+    environment:
+      <<: *service-env
+      SERVER_PORT: 8081
+      DB_HOST: postgres-user
+      DB_NAME: user_db
+    ports: ["8081:8081"]
+    depends_on:
+      postgres-user:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
+
+  catalog-service:
+    <<: *service-common
+    build:
+      context: .
+      args:
+        MODULE: catalog-service
+    container_name: catalog-service
+    environment:
+      <<: *service-env
+      SERVER_PORT: 8082
+      DB_HOST: postgres-catalog
+      DB_NAME: catalog_db
+    ports: ["8082:8082"]
+    depends_on:
+      postgres-catalog:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
+
+  reservation-service:
+    <<: *service-common
+    build:
+      context: .
+      args:
+        MODULE: reservation-service
+    container_name: reservation-service
+    environment:
+      <<: *service-env
+      SERVER_PORT: 8083
+      DB_HOST: postgres-reservation
+      DB_NAME: reservation_db
+    ports: ["8083:8083"]
+    depends_on:
+      postgres-reservation:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
+      catalog-service:
+        condition: service_started
+
+networks:
+  booking-net:
+    driver: bridge
+
+volumes:
+  postgres-user-data:
+  postgres-catalog-data:
+  postgres-reservation-data:
