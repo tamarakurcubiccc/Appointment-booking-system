@@ -1,0 +1,136 @@
+### Appointment Booking System - end-to-end walkthrough
+### Works with the IntelliJ HTTP Client or the VS Code "REST Client" extension.
+### Everything goes through the API Gateway.
+
+ http://localhost:18080
+
+### ---------------------------------------------------------------- 1. PROVIDER registers
+# @name registerProvider
+POST {{host}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "ana@salon.rs",
+  "password": "password123",
+  "fullName": "Ana Petrović",
+  "phone": "+381641234567",
+  "role": "PROVIDER"
+}
+
+> {% client.global.set("providerToken", response.body.accessToken); %}
+
+### ---------------------------------------------------------------- 2. CLIENT registers
+# @name registerClient
+POST {{host}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "marko@example.com",
+  "password": "password123",
+  "fullName": "Marko Marković",
+  "phone": "+381601112233",
+  "role": "CLIENT"
+}
+
+> {% client.global.set("clientToken", response.body.accessToken); %}
+
+### ---------------------------------------------------------------- 3. Log in (same token flow)
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "marko@example.com",
+  "password": "password123"
+}
+
+### ---------------------------------------------------------------- 4. Current profile
+GET {{host}}/api/users/me
+Authorization: Bearer {{clientToken}}
+
+### ---------------------------------------------------------------- 5. Provider creates a service
+# @name createService
+POST {{host}}/api/services
+Authorization: Bearer {{providerToken}}
+Content-Type: application/json
+
+{
+  "name": "Šišanje",
+  "description": "Muško šišanje sa pranjem kose",
+  "durationMinutes": 30,
+  "price": 1500.00
+}
+
+> {% client.global.set("serviceId", response.body.id); %}
+
+### ---------------------------------------------------------------- 6. Bulk-generate slots
+POST {{host}}/api/services/{{serviceId}}/slots/generate
+Authorization: Bearer {{providerToken}}
+Content-Type: application/json
+
+{
+  "fromDate": "2026-07-20",
+  "toDate": "2026-07-24",
+  "workDayStart": "09:00:00",
+  "workDayEnd": "17:00:00",
+  "skipWeekend": true,
+  "zoneId": "Europe/Belgrade"
+}
+
+### ---------------------------------------------------------------- 7. Browse the catalog (no token)
+GET {{host}}/api/services
+
+### ---------------------------------------------------------------- 8. Free slots for the service
+# @name freeSlots
+GET {{host}}/api/slots?serviceId={{serviceId}}&status=AVAILABLE
+
+> {% client.global.set("slotId", response.body[0].id); %}
+
+### ---------------------------------------------------------------- 9. Is the slot still free?
+GET {{host}}/api/reservations/availability?slotId={{slotId}}
+Authorization: Bearer {{clientToken}}
+
+### ---------------------------------------------------------------- 10. Book it
+# @name book
+POST {{host}}/api/reservations
+Authorization: Bearer {{clientToken}}
+Content-Type: application/json
+
+{
+  "serviceId": "{{serviceId}}",
+  "slotId": "{{slotId}}",
+  "note": "Prvi put dolazim"
+}
+
+> {% client.global.set("reservationId", response.body.id); %}
+
+### ---------------------------------------------------------------- 11. Booking the same slot again -> 409
+POST {{host}}/api/reservations
+Authorization: Bearer {{clientToken}}
+Content-Type: application/json
+
+{
+  "serviceId": "{{serviceId}}",
+  "slotId": "{{slotId}}"
+}
+
+### ---------------------------------------------------------------- 12. My reservations
+GET {{host}}/api/reservations/my
+Authorization: Bearer {{clientToken}}
+
+### ---------------------------------------------------------------- 13. Provider's schedule
+GET {{host}}/api/reservations/provider
+Authorization: Bearer {{providerToken}}
+
+### ---------------------------------------------------------------- 14. Cancel -> slot goes back to AVAILABLE
+POST {{host}}/api/reservations/{{reservationId}}/cancel
+Authorization: Bearer {{clientToken}}
+
+### ---------------------------------------------------------------- 15. Confirm the slot was released
+GET {{host}}/api/slots/{{slotId}}
+
+### ---------------------------------------------------------------- 16. Internal API is blocked at the gateway -> 404
+GET {{host}}/api/internal/slots/{{slotId}}
+Authorization: Bearer {{clientToken}}
+
+### ---------------------------------------------------------------- 17. No token -> 401
+GET {{host}}/api/reservations/my
