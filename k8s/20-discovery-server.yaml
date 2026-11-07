@@ -1,0 +1,80 @@
+# ---------------------------------------------------------------------------
+# Eureka service registry.
+#
+# Kubernetes has its own service discovery, so this is strictly speaking redundant -
+# it is kept because the services already use it and running the same mechanism in
+# both environments means one behaviour to debug instead of two. The Services defined
+# here still exist, and are what the pods use to find each other by name.
+# ---------------------------------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: discovery-server
+  namespace: appointment-booking
+  labels:
+    app: discovery-server
+    app.kubernetes.io/part-of: appointment-booking
+spec:
+  selector:
+    app: discovery-server
+  ports:
+    - name: http
+      port: 8761
+      targetPort: 8761
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: discovery-server
+  namespace: appointment-booking
+  labels:
+    app: discovery-server
+    app.kubernetes.io/part-of: appointment-booking
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: discovery-server
+  template:
+    metadata:
+      labels:
+        app: discovery-server
+        app.kubernetes.io/part-of: appointment-booking
+    spec:
+      containers:
+        - name: discovery-server
+          # Built locally by `make k8s-images`; never pulled from a registry.
+          image: appointment-booking-discovery-server:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8761
+          env:
+            - name: EUREKA_HOSTNAME
+              value: discovery-server
+          # A startup probe gives the JVM as long as it needs without making the
+          # liveness probe permanently lax: once it passes, liveness takes over with
+          # a short period and actually notices a hung process.
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8761
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8761
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8761
+            periodSeconds: 20
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: 256Mi
+              cpu: 100m
+            limits:
+              memory: 640Mi
+              cpu: "1"

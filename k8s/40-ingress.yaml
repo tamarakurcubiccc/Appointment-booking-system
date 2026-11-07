@@ -1,0 +1,40 @@
+# ---------------------------------------------------------------------------
+# Outside traffic enters here and goes only to the gateway.
+#
+# Needs an ingress controller in the cluster (ingress-nginx). Without one, the same
+# thing is reachable with no extra moving parts:
+#
+#   kubectl -n appointment-booking port-forward svc/api-gateway 8080:8080
+#
+# For the host name to resolve, add it to the hosts file:
+#   Windows  C:\Windows\System32\drivers\etc\hosts
+#   Linux    /etc/hosts
+#
+#   127.0.0.1  appointment-booking.local
+#
+# Mailpit and the RabbitMQ console are deliberately NOT exposed through the Ingress -
+# they are development tools, and anything that reads other people's mail or the message
+# bus has no business being reachable from outside. Reach them with port-forward:
+#   kubectl -n appointment-booking port-forward svc/mailpit 8025:8025
+#   kubectl -n appointment-booking port-forward svc/rabbitmq 15672:15672
+# ---------------------------------------------------------------------------
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api-gateway
+  namespace: appointment-booking
+  labels:
+    app.kubernetes.io/part-of: appointment-booking
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: appointment-booking.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: api-gateway
+                port:
+                  number: 8080
