@@ -4,3 +4,6 @@
 *.iml
 docs/
 README.md
+k8s/
+web-client/
+.github/

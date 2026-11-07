@@ -3,7 +3,8 @@
 #
 #   docker compose up --build
 #
-# Entry point:  http://localhost:8080   (API Gateway)
+# Web client:   http://localhost:3000   (entry point for people)
+# API Gateway:  http://localhost:8080   (entry point for the API)
 # Eureka UI:    http://localhost:8761
 # RabbitMQ UI:  http://localhost:15672  (booking / booking)
 # Mailpit UI:   http://localhost:8025   (every e-mail the system sends)
@@ -254,9 +255,9 @@ services:
       MAIL_HOST: mailpit
       MAIL_PORT: 1025
       MAIL_FROM: ${MAIL_FROM:-no-reply@appointment-booking.local}
-      # Linkovi u e-mailu vode kroz gateway, a ne na interni port servisa.
-      ACTIVATION_BASE_URL: ${ACTIVATION_BASE_URL:-http://localhost:8080/api/auth/activate}
-      PASSWORD_RESET_BASE_URL: ${PASSWORD_RESET_BASE_URL:-http://localhost:8080/api/auth/reset-password}
+      # Linkovi u e-mailu otvaraju web klijent, koji sam poziva API.
+      ACTIVATION_BASE_URL: ${ACTIVATION_BASE_URL:-http://localhost:3000/activate}
+      PASSWORD_RESET_BASE_URL: ${PASSWORD_RESET_BASE_URL:-http://localhost:3000/reset-password}
     ports: ["8084:8084"]
     depends_on:
       mysql-notification:
@@ -290,6 +291,22 @@ services:
       # Redove i vezivanja deklariše ovaj servis pri pokretanju, pa broker mora da radi.
       rabbitmq:
         condition: service_healthy
+
+  # ------------------------------- frontend -------------------------------
+  # nginx serves the built bundle and proxies /api to the gateway, so the browser talks
+  # to a single origin and CORS never comes into play.
+  web-client:
+    build:
+      context: ./web-client
+    container_name: web-client
+    restart: unless-stopped
+    environment:
+      GATEWAY_URL: http://api-gateway:8080
+    ports: ["${WEB_PORT:-3000}:8080"]
+    depends_on:
+      api-gateway:
+        condition: service_started
+    networks: [booking-net]
 
 networks:
   booking-net:
