@@ -1,0 +1,88 @@
+# ---------------------------------------------------------------------------
+# Registration, login, JWT issuing, activation and password-reset tokens.
+#
+# Publishes user.registered and user.password-reset-requested, and creates the initial
+# admin account from ADMIN_EMAIL / ADMIN_PASSWORD on first start.
+# ---------------------------------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service
+  namespace: appointment-booking
+  labels:
+    app: user-service
+    app.kubernetes.io/part-of: appointment-booking
+spec:
+  selector:
+    app: user-service
+  ports:
+    - name: http
+      port: 8081
+      targetPort: 8081
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+  namespace: appointment-booking
+  labels:
+    app: user-service
+    app.kubernetes.io/part-of: appointment-booking
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: user-service
+  template:
+    metadata:
+      labels:
+        app: user-service
+        app.kubernetes.io/part-of: appointment-booking
+    spec:
+      containers:
+        - name: user-service
+          # Built locally by `make k8s-images`; never pulled from a registry.
+          image: appointment-booking-user-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8081
+          envFrom:
+            - configMapRef:
+                name: booking-config
+            - secretRef:
+                name: booking-secrets
+          env:
+            - name: SERVER_PORT
+              value: "8081"
+            - name: DB_HOST
+              value: mysql-user
+            - name: DB_NAME
+              value: user_db
+          # Kubernetes has no equivalent of Compose's depends_on, so a pod that starts
+          # before its database or the broker will fail and be restarted. The startup
+          # probe is what makes that harmless: it allows up to ~150s to come up, and
+          # only then does the short-period liveness probe take over.
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8081
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8081
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8081
+            periodSeconds: 20
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: 320Mi
+              cpu: 100m
+            limits:
+              memory: 768Mi
+              cpu: "1"

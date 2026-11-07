@@ -1,0 +1,88 @@
+# ---------------------------------------------------------------------------
+# Loyalty rules, appointment counters and rewards.
+#
+# Consumes reservation.created and reservation.cancelled to keep the counters, and
+# serves reward redemption synchronously to reservation-service.
+# ---------------------------------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: loyalty-service
+  namespace: appointment-booking
+  labels:
+    app: loyalty-service
+    app.kubernetes.io/part-of: appointment-booking
+spec:
+  selector:
+    app: loyalty-service
+  ports:
+    - name: http
+      port: 8085
+      targetPort: 8085
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loyalty-service
+  namespace: appointment-booking
+  labels:
+    app: loyalty-service
+    app.kubernetes.io/part-of: appointment-booking
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: loyalty-service
+  template:
+    metadata:
+      labels:
+        app: loyalty-service
+        app.kubernetes.io/part-of: appointment-booking
+    spec:
+      containers:
+        - name: loyalty-service
+          # Built locally by `make k8s-images`; never pulled from a registry.
+          image: appointment-booking-loyalty-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8085
+          envFrom:
+            - configMapRef:
+                name: booking-config
+            - secretRef:
+                name: booking-secrets
+          env:
+            - name: SERVER_PORT
+              value: "8085"
+            - name: DB_HOST
+              value: mysql-loyalty
+            - name: DB_NAME
+              value: loyalty_db
+          # Kubernetes has no equivalent of Compose's depends_on, so a pod that starts
+          # before its database or the broker will fail and be restarted. The startup
+          # probe is what makes that harmless: it allows up to ~150s to come up, and
+          # only then does the short-period liveness probe take over.
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8085
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8085
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8085
+            periodSeconds: 20
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: 320Mi
+              cpu: 100m
+            limits:
+              memory: 768Mi
+              cpu: "1"

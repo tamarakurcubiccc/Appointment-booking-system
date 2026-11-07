@@ -1,0 +1,37 @@
+# ---------------------------------------------------------------------------
+# Lets the whole stack go up with one command, in a defined order:
+#
+#   kubectl apply -k k8s/
+#
+# The files are also plain manifests, so `kubectl apply -f k8s/` works just as well -
+# kustomize here is a convenience, not a dependency. Numbered file names keep the
+# reading order obvious: configuration, then infrastructure, then the services.
+# ---------------------------------------------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: appointment-booking
+
+resources:
+  - 00-namespace.yaml
+  - 01-config.yaml
+  - 02-secrets.yaml
+  - 10-mysql.yaml
+  - 11-rabbitmq.yaml
+  - 12-mailpit.yaml
+  - 20-discovery-server.yaml
+  - 21-api-gateway.yaml
+  - 30-user-service.yaml
+  - 31-catalog-service.yaml
+  - 32-reservation-service.yaml
+  - 33-notification-service.yaml
+  - 34-loyalty-service.yaml
+  - 40-ingress.yaml
+
+# `labels` rather than the deprecated `commonLabels`. includeSelectors stays off: the
+# selectors in the manifests are explicit, and rewriting a selector on an existing
+# Deployment is a change Kubernetes will not accept in place.
+labels:
+  - includeSelectors: false
+    pairs:
+      app.kubernetes.io/part-of: appointment-booking

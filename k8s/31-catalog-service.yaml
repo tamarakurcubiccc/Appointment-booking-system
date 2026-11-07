@@ -1,0 +1,88 @@
+# ---------------------------------------------------------------------------
+# Service offerings and availability slots.
+#
+# The only service with no messaging: booking a slot is a synchronous, atomic
+# operation guarded by a pessimistic lock, which is exactly what must not be async.
+# ---------------------------------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: catalog-service
+  namespace: appointment-booking
+  labels:
+    app: catalog-service
+    app.kubernetes.io/part-of: appointment-booking
+spec:
+  selector:
+    app: catalog-service
+  ports:
+    - name: http
+      port: 8082
+      targetPort: 8082
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catalog-service
+  namespace: appointment-booking
+  labels:
+    app: catalog-service
+    app.kubernetes.io/part-of: appointment-booking
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: catalog-service
+  template:
+    metadata:
+      labels:
+        app: catalog-service
+        app.kubernetes.io/part-of: appointment-booking
+    spec:
+      containers:
+        - name: catalog-service
+          # Built locally by `make k8s-images`; never pulled from a registry.
+          image: appointment-booking-catalog-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8082
+          envFrom:
+            - configMapRef:
+                name: booking-config
+            - secretRef:
+                name: booking-secrets
+          env:
+            - name: SERVER_PORT
+              value: "8082"
+            - name: DB_HOST
+              value: mysql-catalog
+            - name: DB_NAME
+              value: catalog_db
+          # Kubernetes has no equivalent of Compose's depends_on, so a pod that starts
+          # before its database or the broker will fail and be restarted. The startup
+          # probe is what makes that harmless: it allows up to ~150s to come up, and
+          # only then does the short-period liveness probe take over.
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8082
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8082
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8082
+            periodSeconds: 20
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: 320Mi
+              cpu: 100m
+            limits:
+              memory: 768Mi
+              cpu: "1"
