@@ -5,6 +5,8 @@
 #
 # Entry point:  http://localhost:8080   (API Gateway)
 # Eureka UI:    http://localhost:8761
+# RabbitMQ UI:  http://localhost:15672  (booking / booking)
+# Mailpit UI:   http://localhost:8025   (every e-mail the system sends)
 #
 # Database-per-service: each service owns a separate PostgreSQL instance and no
 # service ever touches another service's schema.
@@ -37,6 +39,10 @@ x-service-common: &service-common
     EUREKA_URL: http://discovery-server:8761/eureka/
     JWT_SECRET: ${JWT_SECRET:-ZGV2LW9ubHktc2VjcmV0LWtleS1jaGFuZ2UtbWUtaW4tcHJvZHVjdGlvbi0xMjM0NTY3ODkw}
     JWT_ISSUER: ${JWT_ISSUER:-appointment-booking-system}
+    RABBITMQ_HOST: rabbitmq
+    RABBITMQ_PORT: 5672
+    RABBITMQ_USER: ${RABBITMQ_USER:-booking}
+    RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-booking}
   networks: [booking-net]
 
 services:
@@ -72,7 +78,49 @@ services:
     ports: ["${RESERVATION_DB_PORT:-15434}:5432"]
     volumes: ["postgres-reservation-data:/var/lib/postgresql/data"]
 
+  postgres-notification:
+    <<: *postgres-common
+    container_name: postgres-notification
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-booking}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-booking}
+      POSTGRES_DB: notification_db
+    ports: ["${NOTIFICATION_DB_PORT:-15435}:5432"]
+    volumes: ["postgres-notification-data:/var/lib/postgresql/data"]
+
   # --------------------------- infrastructure ---------------------------
+  # Asinhrona komunikacija: reservation-service i user-service objavljuju događaje,
+  # notification-service ih troši. Konzola: http://localhost:15672
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-booking}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-booking}
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_UI_PORT:-15672}:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    volumes: ["rabbitmq-data:/var/lib/rabbitmq"]
+    networks: [booking-net]
+
+  # Lokalni SMTP server koji ne šalje ništa van mašine - svaki e-mail se vidi u
+  # njegovom pregledniku na http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:v1.33
+    container_name: mailpit
+    restart: unless-stopped
+    ports:
+      - "${MAILPIT_UI_PORT:-8025}:8025"
+      - "${MAILPIT_SMTP_PORT:-1025}:1025"
+    networks: [booking-net]
+
   discovery-server:
     build:
       context: .
@@ -166,6 +214,36 @@ services:
       catalog-service:
         condition: service_started
 
+  notification-service:
+    <<: *service-common
+    build:
+      context: .
+      args:
+        MODULE: notification-service
+    container_name: notification-service
+    environment:
+      <<: *service-env
+      SERVER_PORT: 8084
+      DB_HOST: postgres-notification
+      DB_NAME: notification_db
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+      MAIL_FROM: ${MAIL_FROM:-no-reply@appointment-booking.local}
+      # Linkovi u e-mailu vode kroz gateway, a ne na interni port servisa.
+      ACTIVATION_BASE_URL: ${ACTIVATION_BASE_URL:-http://localhost:8080/api/auth/activate}
+      PASSWORD_RESET_BASE_URL: ${PASSWORD_RESET_BASE_URL:-http://localhost:8080/api/auth/reset-password}
+    ports: ["8084:8084"]
+    depends_on:
+      postgres-notification:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
+      # Redovi i vezivanja se deklarišu pri pokretanju ovog servisa, pa broker mora da radi.
+      rabbitmq:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+
 networks:
   booking-net:
     driver: bridge
@@ -174,3 +252,5 @@ volumes:
   postgres-user-data:
   postgres-catalog-data:
   postgres-reservation-data:
+  postgres-notification-data:
+  rabbitmq-data:
