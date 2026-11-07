@@ -63,13 +63,19 @@ GET {{mailpit}}/api/v1/messages
 # @name activateProvider
 POST {{host}}/api/auth/activate?token={{providerActivationToken}}
 
-> {% client.global.set("providerToken", response.body.accessToken); %}
+> {%
+    client.global.set("providerToken", response.body.accessToken);
+    client.global.set("providerId", response.body.user.id);
+%}
 
 ### ---------------------------------------------------------------- 6. Activate the CLIENT
 # @name activateClient
 POST {{host}}/api/auth/activate?token={{clientActivationToken}}
 
-> {% client.global.set("clientToken", response.body.accessToken); %}
+> {%
+    client.global.set("clientToken", response.body.accessToken);
+    client.global.set("clientId", response.body.user.id);
+%}
 
 ### ---------------------------------------------------------------- 7. The same token works twice? -> 400
 POST {{host}}/api/auth/activate?token={{clientActivationToken}}
@@ -207,3 +213,126 @@ Authorization: Bearer {{clientToken}}
 
 ### ---------------------------------------------------------------- 25. No token -> 401
 GET {{host}}/api/reservations/my
+
+### ---------------------------------------------------------------- 26. Provider defines a loyalty rule
+### Every 3rd appointment earns a free one. A provider may have one active rule at a time.
+# @name loyaltyRule
+POST {{host}}/api/loyalty/rules
+Authorization: Bearer {{providerToken}}
+Content-Type: application/json
+
+{
+  "requiredAppointments": 3,
+  "rewardDescription": "Besplatan termin",
+  "rewardValidityDays": 90
+}
+
+### ---------------------------------------------------------------- 27. Anyone can see the offer (no token)
+GET {{host}}/api/loyalty/rules?providerId={{providerId}}
+
+### ---------------------------------------------------------------- 28. Client's own counters
+### Counts grow from reservation.created events, so give the broker a moment after booking.
+GET {{host}}/api/loyalty/accounts/my
+Authorization: Bearer {{clientToken}}
+
+### ---------------------------------------------------------------- 29. Client's rewards
+### After the 3rd booking a reward with status AVAILABLE shows up here.
+# @name myRewards
+GET {{host}}/api/loyalty/rewards/my
+Authorization: Bearer {{clientToken}}
+
+> {% client.global.set("rewardId", response.body[0].id); %}
+
+### ---------------------------------------------------------------- 30. Who is close to a reward (PROVIDER)
+GET {{host}}/api/loyalty/accounts/provider
+Authorization: Bearer {{providerToken}}
+
+### ---------------------------------------------------------------- 31. Book using the reward
+### The reward is validated before the slot is taken and confirmed after the reservation
+### is stored; if it was used elsewhere in between, the whole booking rolls back.
+POST {{host}}/api/reservations
+Authorization: Bearer {{clientToken}}
+Content-Type: application/json
+
+{
+  "serviceId": "{{serviceId}}",
+  "slotId": "{{slotId}}",
+  "rewardId": "{{rewardId}}"
+}
+
+### ---------------------------------------------------------------- 32. The same reward twice -> 409
+POST {{host}}/api/reservations
+Authorization: Bearer {{clientToken}}
+Content-Type: application/json
+
+{
+  "serviceId": "{{serviceId}}",
+  "slotId": "{{slotId}}",
+  "rewardId": "{{rewardId}}"
+}
+
+### ---------------------------------------------------------------- 33. My notifications
+### Everything the system e-mailed to the current user, newest first.
+GET {{host}}/api/notifications/my
+Authorization: Bearer {{clientToken}}
+
+### ---------------------------------------------------------------- 34. Notification templates (ADMIN)
+### The initial admin comes from ADMIN_EMAIL/ADMIN_PASSWORD in .env.
+# @name adminLogin
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@appointment-booking.local",
+  "password": "admin12345"
+}
+
+> {% client.global.set("adminToken", response.body.accessToken); %}
+
+### ---------------------------------------------------------------- 35. List the templates (ADMIN)
+GET {{host}}/api/notification-templates
+Authorization: Bearer {{adminToken}}
+
+### ---------------------------------------------------------------- 36. Change a template without redeploying (ADMIN)
+### Template placeholders are written as a name in double curly braces, which is also how
+### this HTTP client marks its own variables - so a body containing them cannot be sent
+### from this file. Use Swagger UI (http://localhost:8084/swagger-ui.html) or curl for a
+### text with placeholders; this example only changes the fixed part of the subject.
+PUT {{host}}/api/notification-templates/RESERVATION_CONFIRMED_CLIENT
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "description": "Potvrda rezervacije - klijentu",
+  "subject": "Vaš termin je potvrđen",
+  "body": "Zdravo, vaša rezervacija je potvrđena. Detalje pogledajte u aplikaciji.
+",
+  "active": true
+}
+
+### ---------------------------------------------------------------- 37. Preview a template (ADMIN)
+POST {{host}}/api/notification-templates/RESERVATION_CONFIRMED_CLIENT/preview
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "parameters": {
+    "imeKlijenta": "Marko Marković",
+    "nazivUsluge": "Šišanje",
+    "vremeTermina": "01.12.2026. 10:00",
+    "imePruzaocaUsluge": "Ana Petrović"
+  }
+}
+
+### ---------------------------------------------------------------- 38. Admin revokes access
+PUT {{host}}/api/users/{{clientId}}/enabled
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "enabled": false
+}
+
+### ---------------------------------------------------------------- 39. Loyalty internals are blocked too -> 404
+GET {{host}}/api/internal/loyalty/rewards?clientId={{clientId}}&providerId={{providerId}}
+Authorization: Bearer {{clientToken}}
