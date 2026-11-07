@@ -6,7 +6,10 @@ spring:
     name: notification-service
 
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5435}/${DB_NAME:notification_db}
+    # useSSL=false together with allowPublicKeyRetrieval=true is required for MySQL 8 over
+    # a plain connection: the caching_sha2_password handshake otherwise refuses to hand over
+    # the server public key. serverTimezone pins UTC so Instant values are never shifted.
+    url: "jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3309}/${DB_NAME:notification_db}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
     username: ${DB_USER:booking}
     password: ${DB_PASSWORD:booking}
     hikari:
@@ -33,12 +36,12 @@ spring:
     password: ${RABBITMQ_PASSWORD:booking}
     listener:
       simple:
-        # Poruka koju potrošač odbije NE ide nazad u red, već u dead-letter exchange.
-        # Bez ovoga bi neispravna poruka kružila u beskonačnoj petlji.
+        # A message the consumer rejects is NOT requeued - it goes to the dead-letter
+        # exchange. Without this a malformed message would loop forever.
         default-requeue-rejected: false
         retry:
-          # Prolazne greške (SMTP nedostupan, user-service se restartuje) se ponavljaju
-          # sa eksponencijalnim čekanjem; nakon max-attempts poruka ide na DLQ.
+          # Transient failures (SMTP down, user-service restarting) are retried with
+          # exponential backoff; after max-attempts the message lands on the DLQ.
           enabled: true
           initial-interval: 2s
           max-attempts: 4
@@ -48,7 +51,7 @@ spring:
   mail:
     host: ${MAIL_HOST:localhost}
     port: ${MAIL_PORT:1025}
-    # Lokalni SMTP (Mailpit) ne traži autentikaciju ni TLS.
+    # The local SMTP server (Mailpit) needs neither authentication nor TLS.
     properties:
       mail:
         smtp:
@@ -68,11 +71,11 @@ spring:
         enabled: false
 
 notifications:
-  # Kada je false, e-mail se ne šalje - samo se zapiše i oblogira. Korisno za lokalni
-  # razvoj bez SMTP servera; obaveštenja su i dalje vidljiva preko /api/notifications.
+  # When false, no e-mail is handed to SMTP - it is only recorded and logged. Useful for
+  # local development without a mail server; notifications stay readable via /api/notifications.
   mail-enabled: ${MAIL_ENABLED:true}
   from-address: ${MAIL_FROM:no-reply@appointment-booking.local}
-  # Vremena su u bazi u UTC; u e-mailu se prikazuju u lokalnoj zoni korisnika.
+  # Times are stored in UTC and rendered in this zone inside the message text.
   time-zone: ${NOTIFICATIONS_TIME_ZONE:Europe/Belgrade}
   activation-base-url: ${ACTIVATION_BASE_URL:http://localhost:8080/api/auth/activate}
   password-reset-base-url: ${PASSWORD_RESET_BASE_URL:http://localhost:8080/api/auth/reset-password}

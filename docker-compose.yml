@@ -8,33 +8,38 @@
 # RabbitMQ UI:  http://localhost:15672  (booking / booking)
 # Mailpit UI:   http://localhost:8025   (every e-mail the system sends)
 #
-# Database-per-service: each service owns a separate PostgreSQL instance and no
+# Database-per-service: each service owns a separate MySQL instance and no
 # service ever touches another service's schema.
 # ---------------------------------------------------------------------------
 name: appointment-booking
 
-x-postgres-common: &postgres-common
-  image: postgres:16-alpine
+x-mysql-common: &mysql-common
+  image: mysql:8.4
   restart: unless-stopped
   environment:
-    POSTGRES_USER: ${POSTGRES_USER:-booking}
-    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-booking}
+    # MYSQL_USER/MYSQL_PASSWORD dobijaju sve privilegije nad MYSQL_DATABASE, pa se
+    # servisi nikada ne povezuju kao root. Root lozinka je obavezna za inicijalizaciju.
+    MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+    MYSQL_USER: ${MYSQL_USER:-booking}
+    MYSQL_PASSWORD: ${MYSQL_PASSWORD:-booking}
   healthcheck:
-    # -d is required: without it pg_isready probes a database named after the
-    # user, which does not exist here. $$ escapes to a literal $ so the shell
-    # inside the container expands it.
-    test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+    # Provera ide preko TCP-a (-h 127.0.0.1), a ne preko lokalnog socket-a: socket
+    # postoji i pre nego što server prihvata mrežne konekcije, pa bi servisi startovali
+    # prerano. $$ se pretvara u pravi $ koji razrešava shell unutar kontejnera.
+    test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$$MYSQL_ROOT_PASSWORD --silent"]
     interval: 10s
     timeout: 5s
-    retries: 10
+    retries: 15
+    # Prvo pokretanje inicijalizuje bazu i traje znatno duže od narednih.
+    start_period: 40s
   networks: [booking-net]
 
 x-service-common: &service-common
   restart: unless-stopped
   environment: &service-env
-    DB_USER: ${POSTGRES_USER:-booking}
-    DB_PASSWORD: ${POSTGRES_PASSWORD:-booking}
-    DB_PORT: 5432
+    DB_USER: ${MYSQL_USER:-booking}
+    DB_PASSWORD: ${MYSQL_PASSWORD:-booking}
+    DB_PORT: 3306
     DDL_AUTO: ${DDL_AUTO:-update}
     EUREKA_URL: http://discovery-server:8761/eureka/
     JWT_SECRET: ${JWT_SECRET:-ZGV2LW9ubHktc2VjcmV0LWtleS1jaGFuZ2UtbWUtaW4tcHJvZHVjdGlvbi0xMjM0NTY3ODkw}
@@ -48,45 +53,49 @@ x-service-common: &service-common
 services:
 
   # ----------------------------- databases -----------------------------
-  postgres-user:
-    <<: *postgres-common
-    container_name: postgres-user
+  mysql-user:
+    <<: *mysql-common
+    container_name: mysql-user
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-booking}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-booking}
-      POSTGRES_DB: user_db
-    ports: ["${USER_DB_PORT:-15432}:5432"]
-    volumes: ["postgres-user-data:/var/lib/postgresql/data"]
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_USER: ${MYSQL_USER:-booking}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-booking}
+      MYSQL_DATABASE: user_db
+    ports: ["${USER_DB_PORT:-13306}:3306"]
+    volumes: ["mysql-user-data:/var/lib/mysql"]
 
-  postgres-catalog:
-    <<: *postgres-common
-    container_name: postgres-catalog
+  mysql-catalog:
+    <<: *mysql-common
+    container_name: mysql-catalog
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-booking}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-booking}
-      POSTGRES_DB: catalog_db
-    ports: ["${CATALOG_DB_PORT:-15433}:5432"]
-    volumes: ["postgres-catalog-data:/var/lib/postgresql/data"]
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_USER: ${MYSQL_USER:-booking}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-booking}
+      MYSQL_DATABASE: catalog_db
+    ports: ["${CATALOG_DB_PORT:-13307}:3306"]
+    volumes: ["mysql-catalog-data:/var/lib/mysql"]
 
-  postgres-reservation:
-    <<: *postgres-common
-    container_name: postgres-reservation
+  mysql-reservation:
+    <<: *mysql-common
+    container_name: mysql-reservation
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-booking}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-booking}
-      POSTGRES_DB: reservation_db
-    ports: ["${RESERVATION_DB_PORT:-15434}:5432"]
-    volumes: ["postgres-reservation-data:/var/lib/postgresql/data"]
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_USER: ${MYSQL_USER:-booking}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-booking}
+      MYSQL_DATABASE: reservation_db
+    ports: ["${RESERVATION_DB_PORT:-13308}:3306"]
+    volumes: ["mysql-reservation-data:/var/lib/mysql"]
 
-  postgres-notification:
-    <<: *postgres-common
-    container_name: postgres-notification
+  mysql-notification:
+    <<: *mysql-common
+    container_name: mysql-notification
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-booking}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-booking}
-      POSTGRES_DB: notification_db
-    ports: ["${NOTIFICATION_DB_PORT:-15435}:5432"]
-    volumes: ["postgres-notification-data:/var/lib/postgresql/data"]
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_USER: ${MYSQL_USER:-booking}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-booking}
+      MYSQL_DATABASE: notification_db
+    ports: ["${NOTIFICATION_DB_PORT:-13309}:3306"]
+    volumes: ["mysql-notification-data:/var/lib/mysql"]
 
   # --------------------------- infrastructure ---------------------------
   # Asinhrona komunikacija: reservation-service i user-service objavljuju događaje,
@@ -165,11 +174,11 @@ services:
     environment:
       <<: *service-env
       SERVER_PORT: 8081
-      DB_HOST: postgres-user
+      DB_HOST: mysql-user
       DB_NAME: user_db
     ports: ["8081:8081"]
     depends_on:
-      postgres-user:
+      mysql-user:
         condition: service_healthy
       discovery-server:
         condition: service_healthy
@@ -184,11 +193,11 @@ services:
     environment:
       <<: *service-env
       SERVER_PORT: 8082
-      DB_HOST: postgres-catalog
+      DB_HOST: mysql-catalog
       DB_NAME: catalog_db
     ports: ["8082:8082"]
     depends_on:
-      postgres-catalog:
+      mysql-catalog:
         condition: service_healthy
       discovery-server:
         condition: service_healthy
@@ -203,11 +212,11 @@ services:
     environment:
       <<: *service-env
       SERVER_PORT: 8083
-      DB_HOST: postgres-reservation
+      DB_HOST: mysql-reservation
       DB_NAME: reservation_db
     ports: ["8083:8083"]
     depends_on:
-      postgres-reservation:
+      mysql-reservation:
         condition: service_healthy
       discovery-server:
         condition: service_healthy
@@ -224,7 +233,7 @@ services:
     environment:
       <<: *service-env
       SERVER_PORT: 8084
-      DB_HOST: postgres-notification
+      DB_HOST: mysql-notification
       DB_NAME: notification_db
       MAIL_HOST: mailpit
       MAIL_PORT: 1025
@@ -234,7 +243,7 @@ services:
       PASSWORD_RESET_BASE_URL: ${PASSWORD_RESET_BASE_URL:-http://localhost:8080/api/auth/reset-password}
     ports: ["8084:8084"]
     depends_on:
-      postgres-notification:
+      mysql-notification:
         condition: service_healthy
       discovery-server:
         condition: service_healthy
@@ -249,8 +258,8 @@ networks:
     driver: bridge
 
 volumes:
-  postgres-user-data:
-  postgres-catalog-data:
-  postgres-reservation-data:
-  postgres-notification-data:
+  mysql-user-data:
+  mysql-catalog-data:
+  mysql-reservation-data:
+  mysql-notification-data:
   rabbitmq-data:

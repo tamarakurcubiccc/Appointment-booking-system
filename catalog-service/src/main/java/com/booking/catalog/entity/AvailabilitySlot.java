@@ -13,6 +13,8 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import jakarta.persistence.Version;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -36,6 +38,7 @@ public class AvailabilitySlot {
 
     @Id
     @GeneratedValue
+    @JdbcTypeCode(SqlTypes.CHAR)
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -43,6 +46,7 @@ public class AvailabilitySlot {
     private ServiceOffering service;
 
     @Column(name = "provider_id", nullable = false)
+    @JdbcTypeCode(SqlTypes.CHAR)
     private UUID providerId;
 
     @Column(name = "start_time", nullable = false)

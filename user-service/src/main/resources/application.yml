@@ -6,7 +6,10 @@ spring:
     name: user-service
 
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:user_db}
+    # useSSL=false together with allowPublicKeyRetrieval=true is required for MySQL 8 over
+    # a plain connection: the caching_sha2_password handshake otherwise refuses to hand over
+    # the server public key. serverTimezone pins UTC so Instant values are never shifted.
+    url: "jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:user_db}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
     username: ${DB_USER:booking}
     password: ${DB_PASSWORD:booking}
     hikari:

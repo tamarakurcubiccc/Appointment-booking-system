@@ -8,6 +8,8 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -32,18 +34,23 @@ public class Reservation {
 
     @Id
     @GeneratedValue
+    @JdbcTypeCode(SqlTypes.CHAR)
     private UUID id;
 
     @Column(name = "client_id", nullable = false)
+    @JdbcTypeCode(SqlTypes.CHAR)
     private UUID clientId;
 
     @Column(name = "provider_id", nullable = false)
+    @JdbcTypeCode(SqlTypes.CHAR)
     private UUID providerId;
 
     @Column(name = "service_id", nullable = false)
+    @JdbcTypeCode(SqlTypes.CHAR)
     private UUID serviceId;
 
     @Column(name = "slot_id", nullable = false)
+    @JdbcTypeCode(SqlTypes.CHAR)
     private UUID slotId;
 
     @Column(name = "service_name", length = 140)

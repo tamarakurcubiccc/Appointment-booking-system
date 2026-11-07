@@ -6,6 +6,8 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -20,10 +22,12 @@ public class ServiceOffering {
 
     @Id
     @GeneratedValue
+    @JdbcTypeCode(SqlTypes.CHAR)
     private UUID id;
 
     /** Id korisnika (uloga PROVIDER) koji je vlasnik ove usluge. U vlasništvu user-service. */
     @Column(name = "provider_id", nullable = false)
+    @JdbcTypeCode(SqlTypes.CHAR)
     private UUID providerId;
 
     @Column(nullable = false, length = 140)

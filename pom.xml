@@ -16,7 +16,7 @@
     <version>1.0.0</version>
     <packaging>pom</packaging>
     <name>appointment-booking-system</name>
-    <description>Appointment Booking System - microservices (Spring Boot, PostgreSQL, Docker)</description>
+    <description>Appointment Booking System - microservices (Spring Boot, MySQL, Docker)</description>
 
     <modules>
         <module>common</module>

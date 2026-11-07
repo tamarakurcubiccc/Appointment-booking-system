@@ -51,4 +51,4 @@ This project is a comprehensive Appointment Scheduling System designed to stream
 ## Technologies Used
 
 - **Frameworks/Libraries:** Spring Boot 3.3, Spring Cloud Gateway (API Gateway), Eureka (Service Discovery), Spring Cloud LoadBalancer, OpenFeign, Resilience4j, Spring Security, Spring Data JPA, jjwt (JWT), springdoc-openapi (Swagger)
-- **Tools:** Java 21, PostgreSQL (a separate database per service), Docker & Docker Compose, Maven, JUnit 5, Mockito, AssertJ
+- **Tools:** Java 21, MySQL 8 (a separate database per service), Docker & Docker Compose, Maven, JUnit 5, Mockito, AssertJ

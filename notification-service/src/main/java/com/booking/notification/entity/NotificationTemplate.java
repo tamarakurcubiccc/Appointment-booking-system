@@ -6,6 +6,8 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -22,6 +24,7 @@ public class NotificationTemplate {
 
     @Id
     @GeneratedValue
+    @JdbcTypeCode(SqlTypes.CHAR)
     private UUID id;
 
     /** Stabilna šifra po kojoj servis pronalazi šablon, npr. RESERVATION_CONFIRMED_CLIENT. */

@@ -8,6 +8,8 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -18,6 +20,7 @@ public class User {
 
     @Id
     @GeneratedValue
+    @JdbcTypeCode(SqlTypes.CHAR)
     private UUID id;
 
     @Column(nullable = false, unique = true, length = 180)

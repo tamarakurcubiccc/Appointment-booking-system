@@ -9,6 +9,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -36,10 +38,12 @@ public class Notification {
 
     @Id
     @GeneratedValue
+    @JdbcTypeCode(SqlTypes.CHAR)
     private UUID id;
 
     /** Id domenskog događaja koji je izazvao obaveštenje. */
     @Column(name = "event_id", nullable = false)
+    @JdbcTypeCode(SqlTypes.CHAR)
     private UUID eventId;
 
     @Column(name = "template_code", nullable = false, length = 60)
@@ -47,6 +51,7 @@ public class Notification {
 
     /** Id primaoca iz user-service; null ako primalac nije korisnik sistema. */
     @Column(name = "recipient_id")
+    @JdbcTypeCode(SqlTypes.CHAR)
     private UUID recipientId;
 
     @Column(name = "recipient_email", nullable = false, length = 180)
