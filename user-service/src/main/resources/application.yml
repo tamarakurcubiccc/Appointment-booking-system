@@ -33,6 +33,14 @@ spring:
     password: ${RABBITMQ_PASSWORD:booking}
 
 security:
+  # The first admin account, created at startup when both values are set. Nothing is
+  # created when they are empty, so a real deployment that leaves them unset gets no
+  # account with a known password.
+  admin:
+    email: ${ADMIN_EMAIL:}
+    password: ${ADMIN_PASSWORD:}
+    full-name: ${ADMIN_FULL_NAME:Administrator}
+
   tokens:
     # One-time links sent by e-mail. The reset window is short on purpose: the link is
     # enough to take over the account, so it should not stay valid for long.

@@ -1,6 +1,7 @@
 package com.booking.user.config;
 
 import com.booking.common.security.GatewayAuthenticationFilter;
+import com.booking.user.security.AdminProperties;
 import com.booking.user.security.JwtProperties;
 import com.booking.user.security.TokenProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -20,7 +21,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
-@EnableConfigurationProperties({JwtProperties.class, TokenProperties.class})
+@EnableConfigurationProperties({JwtProperties.class, TokenProperties.class, AdminProperties.class})
 public class SecurityConfig {
 
     @Bean
@@ -47,6 +48,7 @@ public class SecurityConfig {
                         // Interni endpointi se nikada ne rutiraju kroz gateway (vidi gateway konfiguraciju).
                         .requestMatchers("/api/internal/**").permitAll()
                         .requestMatchers(HttpMethod.PUT, "/api/users/*/role").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/users/*/enabled").hasRole("ADMIN")
                         .requestMatchers("/api/users/**").authenticated()
                         .anyRequest().authenticated())
                 .addFilterBefore(gatewayFilter, UsernamePasswordAuthenticationFilter.class);

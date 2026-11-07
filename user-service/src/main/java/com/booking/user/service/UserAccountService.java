@@ -185,6 +185,25 @@ public class UserAccountService {
         return UserResponse.from(user);
     }
 
+    /**
+     * Ukidanje i vraćanje pristupa. Administrator ne može da deaktivira sopstveni nalog -
+     * ako je jedini administrator, time bi zaključao sistem i nikome ne bi ostao način
+     * da pristup vrati.
+     */
+    @Transactional
+    public UserResponse setEnabled(UUID id, boolean enabled, UUID callerId) {
+        if (id.equals(callerId)) {
+            throw ApiException.badRequest("Ne možete deaktivirati sopstveni nalog");
+        }
+
+        var user = repository.findById(id)
+                .orElseThrow(() -> ApiException.notFound("Korisnik " + id + " nije pronađen"));
+
+        user.setEnabled(enabled);
+        log.info("Account {} {} by {}", id, enabled ? "re-enabled" : "disabled", callerId);
+        return UserResponse.from(user);
+    }
+
     private AccountToken usableToken(String token, TokenType type, String label) {
         var accountToken = tokenRepository.findByTokenAndType(token, type)
                 .orElseThrow(() -> ApiException.badRequest(label + " nije valjan"));

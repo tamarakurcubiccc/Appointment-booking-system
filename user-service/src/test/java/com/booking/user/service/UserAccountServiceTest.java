@@ -176,6 +176,42 @@ class UserAccountServiceTest {
     }
 
     @Test
+    void anAdminCanDisableAndThenReEnableAnAccount() {
+        var user = savedUser("marko@example.com");
+        var id = UUID.randomUUID();
+        var admin = UUID.randomUUID();
+        when(repository.findById(id)).thenReturn(Optional.of(user));
+
+        assertThat(service.setEnabled(id, false, admin).enabled()).isFalse();
+        assertThat(service.setEnabled(id, true, admin).enabled()).isTrue();
+    }
+
+    @Test
+    void aDisabledAccountCannotLogInEvenWhenActivated() {
+        var user = savedUser("marko@example.com");
+        user.activate();
+        user.setEnabled(false);
+        when(repository.findByEmailIgnoreCase("marko@example.com")).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> service.login(new LoginRequest("marko@example.com", "password123")))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("deaktiviran");
+    }
+
+    @Test
+    void anAdminCannotDisableTheirOwnAccount() {
+        var admin = UUID.randomUUID();
+
+        // Inače bi jedini administrator mogao da zaključa sistem bez puta nazad.
+        assertThatThrownBy(() -> service.setEnabled(admin, false, admin))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+
+        verify(repository, never()).findById(any());
+    }
+
+    @Test
     void anAdminRoleCannotBeSelfAssignedAtRegistration() {
         when(repository.existsByEmailIgnoreCase("admin@example.com")).thenReturn(false);
 

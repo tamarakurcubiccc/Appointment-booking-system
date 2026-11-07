@@ -1,6 +1,7 @@
 package com.booking.user.controller;
 
 import com.booking.common.security.CurrentUser;
+import com.booking.user.dto.UpdateEnabledRequest;
 import com.booking.user.dto.UpdateRoleRequest;
 import com.booking.user.dto.UserResponse;
 import com.booking.user.service.UserAccountService;
@@ -47,6 +48,13 @@ public class UserController {
     @Operation(summary = "Preuzmi jednog korisnika (ADMIN ili sam korisnik)")
     public UserResponse findById(@PathVariable UUID id) {
         return service.findById(id);
+    }
+
+    @PutMapping("/{id}/enabled")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Ukini ili vrati pristup korisniku (ADMIN)")
+    public UserResponse setEnabled(@PathVariable UUID id, @Valid @RequestBody UpdateEnabledRequest request) {
+        return service.setEnabled(id, request.enabled(), CurrentUser.requiredId());
     }
 
     @PutMapping("/{id}/role")
