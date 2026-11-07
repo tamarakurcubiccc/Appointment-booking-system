@@ -39,6 +39,27 @@ spec:
         app: notification-service
         app.kubernetes.io/part-of: appointment-booking
     spec:
+      # Kubernetes has no equivalent of Compose's depends_on. Spring Boot exits when it
+      # cannot reach its database at startup, so without this the pod would crash and be
+      # restarted until the database happened to be up - which works, but fills the first
+      # minute of a cold cluster with CrashLoopBackOff noise. Waiting here instead keeps
+      # the restart count at zero and makes a genuine restart meaningful.
+      initContainers:
+        - name: wait-for-dependencies
+          image: busybox:1.37
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z mysql-notification 3306; do echo "waiting for mysql-notification"; sleep 2; done
+              until nc -z rabbitmq 5672; do echo "waiting for rabbitmq"; sleep 2; done
+          resources:
+            requests:
+              memory: 16Mi
+              cpu: 10m
+            limits:
+              memory: 64Mi
+              cpu: 100m
       containers:
         - name: notification-service
           # Built locally by `make k8s-images`; never pulled from a registry.
@@ -58,10 +79,9 @@ spec:
               value: mysql-notification
             - name: DB_NAME
               value: notification_db
-          # Kubernetes has no equivalent of Compose's depends_on, so a pod that starts
-          # before its database or the broker will fail and be restarted. The startup
-          # probe is what makes that harmless: it allows up to ~150s to come up, and
-          # only then does the short-period liveness probe take over.
+          # The startup probe allows a generous ~150s for the JVM and Eureka registration
+          # without making the liveness probe permanently lax: once it passes, liveness
+          # takes over with a short period and actually notices a hung process.
           startupProbe:
             httpGet:
               path: /actuator/health
