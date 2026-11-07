@@ -1,0 +1,73 @@
+# ---------------------------------------------------------------------------
+# React client, served by nginx.
+#
+# Stateless static files, so it scales horizontally for free - two replicas mean a
+# rolling update never leaves the site unreachable.
+#
+# GATEWAY_URL points nginx at the gateway Service; the browser only ever requests
+# relative /api/... paths, so no cluster address is baked into the bundle.
+# ---------------------------------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-client
+  namespace: appointment-booking
+  labels:
+    app: web-client
+    app.kubernetes.io/part-of: appointment-booking
+spec:
+  selector:
+    app: web-client
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-client
+  namespace: appointment-booking
+  labels:
+    app: web-client
+    app.kubernetes.io/part-of: appointment-booking
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web-client
+  template:
+    metadata:
+      labels:
+        app: web-client
+        app.kubernetes.io/part-of: appointment-booking
+    spec:
+      containers:
+        - name: web-client
+          image: appointment-booking-web-client:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: GATEWAY_URL
+              value: "http://api-gateway:8080"
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            periodSeconds: 20
+            failureThreshold: 3
+          # nginx serving static files needs very little; the limits exist so a runaway
+          # container cannot starve the services sharing the node.
+          resources:
+            requests:
+              memory: 32Mi
+              cpu: 25m
+            limits:
+              memory: 128Mi
+              cpu: 300m

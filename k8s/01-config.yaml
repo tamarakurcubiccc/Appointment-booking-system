@@ -32,9 +32,10 @@ data:
   MAIL_FROM: "no-reply@appointment-booking.local"
   NOTIFICATIONS_TIME_ZONE: "Europe/Belgrade"
 
-  # Links inside the e-mails point at the Ingress host, not at a pod.
-  ACTIVATION_BASE_URL: "http://appointment-booking.local/api/auth/activate"
-  PASSWORD_RESET_BASE_URL: "http://appointment-booking.local/api/auth/reset-password"
+  # Links inside the e-mails open the web client at the Ingress host, which then
+  # calls the API itself - they are not API URLs.
+  ACTIVATION_BASE_URL: "http://appointment-booking.local/activate"
+  PASSWORD_RESET_BASE_URL: "http://appointment-booking.local/reset-password"
 
   CORS_ALLOWED_ORIGINS: "http://appointment-booking.local,http://localhost:3000,http://localhost:5173"
 

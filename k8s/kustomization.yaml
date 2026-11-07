@@ -26,6 +26,7 @@ resources:
   - 32-reservation-service.yaml
   - 33-notification-service.yaml
   - 34-loyalty-service.yaml
+  - 35-web-client.yaml
   - 40-ingress.yaml
 
 # `labels` rather than the deprecated `commonLabels`. includeSelectors stays off: the
