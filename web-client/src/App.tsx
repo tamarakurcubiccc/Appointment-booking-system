@@ -14,10 +14,6 @@ import { ProviderPage } from "./pages/ProviderPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 
-/**
- * Hiding a route is convenience, not security: the token is validated at the gateway and
- * every rule is enforced again by the service that owns the data.
- */
 function Protected({ roles, children }: { roles?: Role[]; children: ReactNode }) {
   const { user, loading } = useAuth();
 

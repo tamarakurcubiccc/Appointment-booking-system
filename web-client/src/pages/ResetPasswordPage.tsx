@@ -3,7 +3,6 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ApiError, api } from "../api/client";
 import { Alert, Card, Field } from "../components/ui";
 
-/** Target of the password-reset link in the e-mail. */
 export function ResetPasswordPage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();

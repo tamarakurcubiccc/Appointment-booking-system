@@ -107,8 +107,7 @@ export function AdminPage() {
                     )}
                   </td>
                   <td style={{ textAlign: "right" }}>
-                    {/* An admin cannot disable their own account - the service refuses it,
-                        and offering the button would only invite a 400. */}
+
                     {row.id === user?.id ? (
                       <span className="small muted">vi</span>
                     ) : (

@@ -28,7 +28,6 @@ export function storeToken(token: string | null) {
   }
 }
 
-/** Carries the HTTP status so a caller can tell a conflict from a server error. */
 export class ApiError extends Error {
   readonly status: number;
   readonly fieldErrors?: Record<string, string>;
@@ -43,7 +42,7 @@ export class ApiError extends Error {
 interface RequestOptions {
   method?: string;
   body?: unknown;
-  /** Endpoints that are public; no Authorization header is attached. */
+
   anonymous?: boolean;
 }
 
@@ -58,8 +57,6 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     headers["Content-Type"] = "application/json";
   }
 
-  // Always a relative path: the dev server and nginx both forward /api to the gateway,
-  // so no service address is ever compiled into the bundle.
   const response = await fetch(`/api${path}`, {
     method: options.method ?? "GET",
     headers,
@@ -74,8 +71,6 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   const payload = text ? safeParse(text) : undefined;
 
   if (!response.ok) {
-    // The services answer with a shared ApiError body; fall back to the status text
-    // for anything that does not (a gateway timeout, for instance).
     const message =
       (payload as { message?: string } | undefined)?.message ??
       `${response.status} ${response.statusText}`;
@@ -107,7 +102,6 @@ export interface RegisterInput {
 }
 
 export const api = {
-  // ----------------------------- auth -----------------------------
   register: (input: RegisterInput) =>
     request<User>("/auth/register", { method: "POST", body: input, anonymous: true }),
 
@@ -140,7 +134,6 @@ export const api = {
 
   me: () => request<User>("/users/me"),
 
-  // ----------------------------- users (admin) -----------------------------
   users: () => request<User[]>("/users"),
 
   setUserEnabled: (id: string, enabled: boolean) =>
@@ -149,7 +142,6 @@ export const api = {
   setUserRole: (id: string, role: Role) =>
     request<User>(`/users/${id}/role`, { method: "PUT", body: { role } }),
 
-  // ----------------------------- catalog -----------------------------
   services: (providerId?: string) =>
     request<ServiceOffering[]>(
       providerId ? `/services?providerId=${providerId}` : "/services",
@@ -165,9 +157,6 @@ export const api = {
 
   deactivateService: (id: string) => request<void>(`/services/${id}`, { method: "DELETE" }),
 
-  // The catalog defaults to a 30-day window when from/to are omitted. The client passes
-  // its own horizon instead, so what a visitor sees is a deliberate choice here rather
-  // than a default that silently hides slots a provider published further out.
   slots: (serviceId: string, status?: SlotStatus, horizonDays = 90) => {
     const from = new Date().toISOString();
     const to = new Date(Date.now() + horizonDays * 24 * 60 * 60 * 1000).toISOString();
@@ -190,7 +179,6 @@ export const api = {
     },
   ) => request<Slot[]>(`/services/${serviceId}/slots/generate`, { method: "POST", body: input }),
 
-  // ----------------------------- reservations -----------------------------
   book: (input: { serviceId: string; slotId: string; note?: string; rewardId?: string }) =>
     request<Reservation>("/reservations", { method: "POST", body: input }),
 
@@ -201,7 +189,6 @@ export const api = {
   cancelReservation: (id: string) =>
     request<Reservation>(`/reservations/${id}/cancel`, { method: "POST" }),
 
-  // ----------------------------- loyalty -----------------------------
   loyaltyRules: (providerId?: string) =>
     request<LoyaltyRule[]>(
       providerId ? `/loyalty/rules?providerId=${providerId}` : "/loyalty/rules",
@@ -223,7 +210,6 @@ export const api = {
 
   myRewards: () => request<LoyaltyReward[]>("/loyalty/rewards/my"),
 
-  // ----------------------------- notifications -----------------------------
   myNotifications: () => request<PagedResponse<Notification>>("/notifications/my"),
 
   templates: () => request<NotificationTemplate[]>("/notification-templates"),

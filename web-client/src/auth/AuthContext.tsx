@@ -18,8 +18,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // A token in localStorage survives a reload, but it may have expired meanwhile, so
-  // the profile is re-fetched instead of trusting a cached copy of the user.
   useEffect(() => {
     if (!storedToken()) {
       setLoading(false);

@@ -48,8 +48,7 @@ export function BrowsePage() {
           api.slots(service.id, "AVAILABLE"),
           api.loyaltyRules(service.providerId),
         ]);
-        // Past slots are still AVAILABLE in the catalog; booking one is refused, so they
-        // are filtered out here rather than offered and then rejected.
+
         setSlots(free.filter((slot) => new Date(slot.startTime) > new Date()));
         setRule(rules.find((candidate) => candidate.active) ?? null);
 
@@ -81,7 +80,7 @@ export function BrowsePage() {
       setSuccess(
         `Termin je rezervisan za ${formatDateTime(reservation.startTime)}. Potvrda je poslata na e-mail.`,
       );
-      // The slot is gone for everyone now, so the list is refreshed from the server.
+
       await openService(selected);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Rezervacija nije uspela");

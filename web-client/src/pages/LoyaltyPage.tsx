@@ -27,7 +27,6 @@ export function LoyaltyPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  /** The loyalty service stores provider ids only, so the name comes from the catalog. */
   function providerLabel(providerId: string): string {
     const offering = services.find((service) => service.providerId === providerId);
     return offering ? offering.name : providerId.slice(0, 8);

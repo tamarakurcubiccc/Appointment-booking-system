@@ -1,6 +1,3 @@
-// Mirrors the response records of the services. Only the fields the client actually
-// uses are declared - an extra field in a response is simply ignored.
-
 export type Role = "CLIENT" | "PROVIDER" | "ADMIN";
 
 export interface User {
@@ -115,7 +112,6 @@ export interface NotificationTemplate {
   active: boolean;
 }
 
-/** Spring serialises Page as a PagedModel: the rows plus a page descriptor. */
 export interface PagedResponse<T> {
   content: T[];
   page?: {

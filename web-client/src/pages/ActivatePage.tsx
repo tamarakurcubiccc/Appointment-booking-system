@@ -4,10 +4,6 @@ import { ApiError, api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { Alert, Card } from "../components/ui";
 
-/**
- * Target of the activation link in the e-mail. The token is single-use, so the request
- * is fired exactly once even though React's development mode mounts twice.
- */
 export function ActivatePage() {
   const [params] = useSearchParams();
   const token = params.get("token");

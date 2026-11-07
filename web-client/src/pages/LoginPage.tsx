@@ -23,8 +23,6 @@ export function LoginPage() {
       await signIn(email, password);
       navigate("/");
     } catch (err) {
-      // The service distinguishes "not activated" from "disabled" from "wrong password";
-      // its message is more useful than anything invented here.
       setError(err instanceof ApiError ? err.message : "Prijava nije uspela");
     } finally {
       setBusy(false);

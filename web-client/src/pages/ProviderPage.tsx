@@ -92,7 +92,7 @@ export function ProviderPage() {
         skipWeekend: generate.skipWeekend,
         zoneId: Intl.DateTimeFormat().resolvedOptions().timeZone,
       });
-      // Generation is idempotent, so a second run over the same range creates nothing.
+
       setNotice(
         created.length === 0
           ? "Nije kreiran nijedan nov termin - svi iz tog intervala već postoje."

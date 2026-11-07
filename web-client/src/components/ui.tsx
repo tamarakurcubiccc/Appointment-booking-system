@@ -39,7 +39,6 @@ export function Badge({ kind, children }: { kind?: "ok" | "warn" | "danger"; chi
   return <span className={kind ? `badge ${kind}` : "badge"}>{children}</span>;
 }
 
-/** Local time for a UTC instant from the API. */
 export function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString("sr-RS", {
     day: "2-digit",
