@@ -8,3 +8,8 @@ target/
 
 .env
 *.log
+
+# web client
+node_modules/
+web-client/dist/
+.vite/
