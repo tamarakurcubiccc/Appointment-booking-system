@@ -17,12 +17,13 @@ public record ReservationResponse(
         Instant endTime,
         ReservationStatus status,
         String note,
+        UUID rewardId,
         Instant createdAt,
         Instant cancelledAt
 ) {
     public static ReservationResponse from(Reservation r) {
         return new ReservationResponse(r.getId(), r.getClientId(), r.getProviderId(), r.getServiceId(),
                 r.getSlotId(), r.getServiceName(), r.getStartTime(), r.getEndTime(), r.getStatus(),
-                r.getNote(), r.getCreatedAt(), r.getCancelledAt());
+                r.getNote(), r.getRewardId(), r.getCreatedAt(), r.getCancelledAt());
     }
 }

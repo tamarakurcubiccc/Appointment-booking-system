@@ -69,6 +69,15 @@ public class Reservation {
     @Column(length = 500)
     private String note;
 
+    /**
+     * Nagrada lojalnosti iskorišćena za ovaj termin; null kada se plaća redovno.
+     * Postavlja se posebnom metodom, a ne kroz konstruktor: nagrada se potvrđuje u
+     * loyalty-service posle upisa rezervacije, kada se zna id rezervacije.
+     */
+    @Column(name = "reward_id")
+    @JdbcTypeCode(SqlTypes.CHAR)
+    private UUID rewardId;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
@@ -88,6 +97,10 @@ public class Reservation {
         this.startTime = startTime;
         this.endTime = endTime;
         this.note = note;
+    }
+
+    public void applyReward(UUID rewardId) {
+        this.rewardId = rewardId;
     }
 
     public void cancel() {
@@ -137,6 +150,10 @@ public class Reservation {
 
     public String getNote() {
         return note;
+    }
+
+    public UUID getRewardId() {
+        return rewardId;
     }
 
     public Instant getCreatedAt() {

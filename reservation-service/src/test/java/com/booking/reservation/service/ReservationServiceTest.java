@@ -6,9 +6,12 @@ import com.booking.common.event.ReservationCreatedEvent;
 import com.booking.common.exception.ApiException;
 import com.booking.reservation.client.CatalogClient;
 import com.booking.reservation.client.CatalogPublicClient;
+import com.booking.reservation.client.LoyaltyClient;
+import com.booking.reservation.client.LoyaltyRewardDto;
 import com.booking.reservation.client.ServiceOfferingDto;
 import com.booking.reservation.client.SlotDto;
 import com.booking.reservation.client.UserClient;
+import com.booking.reservation.client.RedeemRewardRequest;
 import com.booking.reservation.client.UserDto;
 import com.booking.reservation.dto.CreateReservationRequest;
 import com.booking.reservation.entity.Reservation;
@@ -27,6 +30,7 @@ import org.springframework.http.HttpStatus;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -35,6 +39,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -48,6 +53,8 @@ class ReservationServiceTest {
     private CatalogPublicClient catalogPublicClient;
     @Mock
     private UserClient userClient;
+    @Mock
+    private LoyaltyClient loyaltyClient;
     @Mock
     private DomainEventPublisher events;
 
@@ -83,7 +90,7 @@ class ReservationServiceTest {
         when(catalogPublicClient.getService(serviceId)).thenReturn(offering(true));
         when(repository.save(any(Reservation.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        var response = service.book(clientId, new CreateReservationRequest(serviceId, slotId, "First visit"));
+        var response = service.book(clientId, new CreateReservationRequest(serviceId, slotId, "First visit", null));
 
         assertThat(response.status()).isEqualTo(ReservationStatus.CONFIRMED);
         assertThat(response.clientId()).isEqualTo(clientId);
@@ -97,7 +104,7 @@ class ReservationServiceTest {
         when(catalogClient.getSlot(slotId))
                 .thenReturn(slot("BOOKED", Instant.now().plus(1, ChronoUnit.DAYS)));
 
-        assertThatThrownBy(() -> service.book(clientId, new CreateReservationRequest(serviceId, slotId, null)))
+        assertThatThrownBy(() -> service.book(clientId, new CreateReservationRequest(serviceId, slotId, null, null)))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.CONFLICT);
@@ -111,7 +118,7 @@ class ReservationServiceTest {
         when(catalogClient.getSlot(slotId))
                 .thenReturn(slot("AVAILABLE", Instant.now().plus(1, ChronoUnit.DAYS)));
 
-        assertThatThrownBy(() -> service.book(clientId, new CreateReservationRequest(otherService, slotId, null)))
+        assertThatThrownBy(() -> service.book(clientId, new CreateReservationRequest(otherService, slotId, null, null)))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.BAD_REQUEST);
@@ -124,7 +131,7 @@ class ReservationServiceTest {
         when(catalogClient.getSlot(slotId))
                 .thenReturn(slot("AVAILABLE", Instant.now().minus(1, ChronoUnit.HOURS)));
 
-        assertThatThrownBy(() -> service.book(clientId, new CreateReservationRequest(serviceId, slotId, null)))
+        assertThatThrownBy(() -> service.book(clientId, new CreateReservationRequest(serviceId, slotId, null, null)))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.BAD_REQUEST);
@@ -138,7 +145,7 @@ class ReservationServiceTest {
         when(catalogPublicClient.getService(serviceId)).thenReturn(offering(true));
         when(repository.save(any(Reservation.class))).thenThrow(new IllegalStateException("db down"));
 
-        assertThatThrownBy(() -> service.book(clientId, new CreateReservationRequest(serviceId, slotId, null)))
+        assertThatThrownBy(() -> service.book(clientId, new CreateReservationRequest(serviceId, slotId, null, null)))
                 .isInstanceOf(IllegalStateException.class);
 
         // Kompenzaciona akcija - termin ne sme ostati zaglavljen u BOOKED.
@@ -200,7 +207,7 @@ class ReservationServiceTest {
         when(catalogPublicClient.getService(serviceId)).thenReturn(offering(true));
         when(repository.save(any(Reservation.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        service.book(clientId, new CreateReservationRequest(serviceId, slotId, null));
+        service.book(clientId, new CreateReservationRequest(serviceId, slotId, null, null));
 
         var event = ArgumentCaptor.forClass(ReservationCreatedEvent.class);
         verify(events).publish(org.mockito.ArgumentMatchers.eq(BookingEvents.RESERVATION_CREATED), event.capture());
@@ -217,7 +224,7 @@ class ReservationServiceTest {
         when(catalogPublicClient.getService(serviceId)).thenReturn(offering(true));
         when(repository.save(any(Reservation.class))).thenThrow(new IllegalStateException("db down"));
 
-        assertThatThrownBy(() -> service.book(clientId, new CreateReservationRequest(serviceId, slotId, null)))
+        assertThatThrownBy(() -> service.book(clientId, new CreateReservationRequest(serviceId, slotId, null, null)))
                 .isInstanceOf(IllegalStateException.class);
 
         // Obaveštenje o zakazivanju koje nije uspelo ne sme da izađe.
@@ -238,5 +245,78 @@ class ReservationServiceTest {
         verify(events).publish(org.mockito.ArgumentMatchers.eq(BookingEvents.RESERVATION_CANCELLED), event.capture());
         assertThat(event.getValue().cancelledBy()).isEqualTo(providerId);
         assertThat(event.getValue().serviceName()).isEqualTo("Šišanje");
+    }
+
+    @Test
+    void bookingWithoutARewardNeverCallsTheLoyaltyService() {
+        Instant start = Instant.now().plus(2, ChronoUnit.DAYS);
+        when(catalogClient.getSlot(slotId)).thenReturn(slot("AVAILABLE", start));
+        when(repository.existsBySlotIdAndStatus(slotId, ReservationStatus.CONFIRMED)).thenReturn(false);
+        when(catalogPublicClient.getService(serviceId)).thenReturn(offering(true));
+        when(repository.save(any(Reservation.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.book(clientId, new CreateReservationRequest(serviceId, slotId, null, null));
+
+        verifyNoInteractions(loyaltyClient);
+    }
+
+    @Test
+    void bookingWithARewardRedeemsIt() {
+        var rewardId = UUID.randomUUID();
+        Instant start = Instant.now().plus(2, ChronoUnit.DAYS);
+        when(catalogClient.getSlot(slotId)).thenReturn(slot("AVAILABLE", start));
+        when(repository.existsBySlotIdAndStatus(slotId, ReservationStatus.CONFIRMED)).thenReturn(false);
+        when(catalogPublicClient.getService(serviceId)).thenReturn(offering(true));
+        when(repository.save(any(Reservation.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(loyaltyClient.usableRewards(clientId, providerId)).thenReturn(List.of(
+                new LoyaltyRewardDto(rewardId, clientId, providerId, "Besplatan termin", "AVAILABLE", true)));
+
+        var response = service.book(clientId, new CreateReservationRequest(serviceId, slotId, null, rewardId));
+
+        assertThat(response.rewardId()).isEqualTo(rewardId);
+        verify(loyaltyClient).redeem(any(RedeemRewardRequest.class));
+    }
+
+    @Test
+    void aRewardThatIsNotUsableIsRefusedBeforeTheSlotIsTaken() {
+        var rewardId = UUID.randomUUID();
+        Instant start = Instant.now().plus(2, ChronoUnit.DAYS);
+        when(catalogClient.getSlot(slotId)).thenReturn(slot("AVAILABLE", start));
+        when(repository.existsBySlotIdAndStatus(slotId, ReservationStatus.CONFIRMED)).thenReturn(false);
+        when(catalogPublicClient.getService(serviceId)).thenReturn(offering(true));
+        when(loyaltyClient.usableRewards(clientId, providerId)).thenReturn(List.of());
+
+        assertThatThrownBy(() -> service.book(clientId,
+                new CreateReservationRequest(serviceId, slotId, null, rewardId)))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getStatus())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+
+        // Termin nije ni zauzet, pa nema ni kompenzacije.
+        verify(catalogClient, never()).bookSlot(any());
+        verify(catalogClient, never()).releaseSlot(any());
+    }
+
+    @Test
+    void aRewardTakenInTheMeantimeRollsTheWholeBookingBack() {
+        var rewardId = UUID.randomUUID();
+        Instant start = Instant.now().plus(2, ChronoUnit.DAYS);
+        when(catalogClient.getSlot(slotId)).thenReturn(slot("AVAILABLE", start));
+        when(repository.existsBySlotIdAndStatus(slotId, ReservationStatus.CONFIRMED)).thenReturn(false);
+        when(catalogPublicClient.getService(serviceId)).thenReturn(offering(true));
+        when(repository.save(any(Reservation.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(loyaltyClient.usableRewards(clientId, providerId)).thenReturn(List.of(
+                new LoyaltyRewardDto(rewardId, clientId, providerId, "Besplatan termin", "AVAILABLE", true)));
+        when(loyaltyClient.redeem(any(RedeemRewardRequest.class)))
+                .thenThrow(ApiException.conflict("Nagrada je već iskorišćena"));
+
+        assertThatThrownBy(() -> service.book(clientId,
+                new CreateReservationRequest(serviceId, slotId, null, rewardId)))
+                .isInstanceOf(ApiException.class);
+
+        // Rezervacija se briše, termin se vraća u AVAILABLE, obaveštenje ne izlazi.
+        verify(repository).delete(any(Reservation.class));
+        verify(catalogClient).releaseSlot(slotId);
+        verify(events, never()).publish(any(), any());
     }
 }

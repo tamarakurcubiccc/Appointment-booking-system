@@ -6,6 +6,8 @@ import com.booking.common.event.ReservationCreatedEvent;
 import com.booking.common.exception.ApiException;
 import com.booking.reservation.client.CatalogClient;
 import com.booking.reservation.client.CatalogPublicClient;
+import com.booking.reservation.client.LoyaltyClient;
+import com.booking.reservation.client.RedeemRewardRequest;
 import com.booking.reservation.client.SlotDto;
 import com.booking.reservation.client.UserClient;
 import com.booking.reservation.client.UserDto;
@@ -37,26 +39,31 @@ public class ReservationService {
     private final CatalogClient catalogClient;
     private final CatalogPublicClient catalogPublicClient;
     private final UserClient userClient;
+    private final LoyaltyClient loyaltyClient;
     private final DomainEventPublisher events;
 
     public ReservationService(ReservationRepository repository,
                               CatalogClient catalogClient,
                               CatalogPublicClient catalogPublicClient,
                               UserClient userClient,
+                              LoyaltyClient loyaltyClient,
                               DomainEventPublisher events) {
         this.repository = repository;
         this.catalogClient = catalogClient;
         this.catalogPublicClient = catalogPublicClient;
         this.userClient = userClient;
+        this.loyaltyClient = loyaltyClient;
         this.events = events;
     }
 
     /**
      * Tok rezervacije:
      *   1. učitaj termin iz catalog-service i validiraj ga
-     *   2. zatraži od catalog-service da ga atomično označi kao BOOKED (409 ako je neko bio brži)
-     *   3. sačuvaj rezervaciju
-     *   4. ako korak 3 ne uspe -> kompenzaciona akcija: vrati termin nazad
+     *   2. ako je poslata nagrada lojalnosti - proveri da je klijent sme koristiti
+     *   3. zatraži od catalog-service da ga atomično označi kao BOOKED (409 ako je neko bio brži)
+     *   4. sačuvaj rezervaciju
+     *   5. potvrdi korišćenje nagrade u loyalty-service (zna se id rezervacije)
+     *   6. ako korak 4 ili 5 ne uspe -> kompenzacija: obriši rezervaciju i vrati termin nazad
      *
      * Lokalna transakcija se otvara samo oko koraka 3 kako spor REST poziv
      * nikada ne bi držao otvorenu konekciju ka bazi.
@@ -82,13 +89,25 @@ public class ReservationService {
             throw ApiException.badRequest("Usluga više nije aktivna");
         }
 
+        // Provera pre zauzimanja termina: neispravna nagrada se odbija bez ikakve
+        // izmene stanja, pa nema šta da se kompenzuje.
+        if (request.rewardId() != null) {
+            assertRewardUsable(clientId, slot.providerId(), request.rewardId());
+        }
+
         // Korak 2 - jedini izvor istine za "ko je dobio termin".
         catalogClient.bookSlot(request.slotId());
 
         try {
             var reservation = new Reservation(clientId, slot.providerId(), slot.serviceId(), slot.id(),
                     offering.name(), slot.startTime(), slot.endTime(), request.note());
+            reservation.applyReward(request.rewardId());
             repository.save(reservation);
+
+            if (request.rewardId() != null) {
+                redeemReward(reservation, clientId);
+            }
+
             log.info("Client {} booked slot {} (reservation {})", clientId, slot.id(), reservation.getId());
 
             // Obaveštenja idu asinhrono - klijent ne čeka na slanje e-maila, a pad
@@ -100,7 +119,7 @@ public class ReservationService {
 
             return ReservationResponse.from(reservation);
         } catch (RuntimeException ex) {
-            log.error("Persisting the reservation failed - releasing slot {}", request.slotId(), ex);
+            log.error("Booking failed after the slot was taken - releasing slot {}", request.slotId(), ex);
             safeRelease(request.slotId());
             throw ex;
         }
@@ -200,6 +219,34 @@ public class ReservationService {
             return SlotAvailabilityResponse.taken(slotId, "Za ovaj termin već postoji aktivna rezervacija");
         }
         return SlotAvailabilityResponse.free(slotId);
+    }
+
+    /**
+     * Nagrada se potvrđuje posle upisa rezervacije, jer loyalty-service pamti u kojoj je
+     * rezervaciji iskorišćena. Ako potvrda ne prođe - nagrada je u međuvremenu iskorišćena
+     * ili je istekla - rezervacija se briše, a spoljni catch oslobađa termin. Klijent
+     * dobija grešku i nijedna strana ne ostaje u polovičnom stanju.
+     */
+    private void redeemReward(Reservation reservation, UUID clientId) {
+        try {
+            loyaltyClient.redeem(new RedeemRewardRequest(reservation.getRewardId(), clientId,
+                    reservation.getProviderId(), reservation.getId()));
+            log.info("Reward {} redeemed for reservation {}", reservation.getRewardId(), reservation.getId());
+        } catch (RuntimeException ex) {
+            log.error("Redeeming reward {} failed - rolling the reservation back",
+                    reservation.getRewardId(), ex);
+            repository.delete(reservation);
+            throw ex;
+        }
+    }
+
+    private void assertRewardUsable(UUID clientId, UUID providerId, UUID rewardId) {
+        boolean usable = loyaltyClient.usableRewards(clientId, providerId).stream()
+                .anyMatch(reward -> reward.id().equals(rewardId) && reward.usable());
+
+        if (!usable) {
+            throw ApiException.badRequest("Nagrada nije dostupna za ovog pružaoca usluge");
+        }
     }
 
     private void safeRelease(UUID slotId) {

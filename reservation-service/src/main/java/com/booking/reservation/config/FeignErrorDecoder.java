@@ -27,12 +27,22 @@ public class FeignErrorDecoder implements ErrorDecoder {
 
         return switch (status) {
             case NOT_FOUND -> ApiException.notFound("Traženi podatak nije pronađen (" + serviceOf(methodKey) + ")");
-            case CONFLICT -> ApiException.conflict("Termin više nije slobodan");
+            case CONFLICT -> ApiException.conflict(conflictMessage(methodKey));
             case BAD_REQUEST -> ApiException.badRequest("Neispravan zahtev (" + serviceOf(methodKey) + ")");
             case FORBIDDEN -> ApiException.forbidden("Radnja nije dozvoljena (" + serviceOf(methodKey) + ")");
             default -> new ApiException(HttpStatus.SERVICE_UNAVAILABLE,
                     serviceOf(methodKey) + " trenutno nije dostupan");
         };
+    }
+
+    /**
+     * Sukob iz catalog-service znači zauzet termin; sukob iz loyalty-service znači već
+     * iskorišćenu nagradu. Jedna poruka za oba slučaja bila bi netačna u jednom od njih.
+     */
+    private static String conflictMessage(String methodKey) {
+        return methodKey.startsWith("CatalogClient")
+                ? "Termin više nije slobodan"
+                : "Zahtev je u sukobu sa trenutnim stanjem (" + serviceOf(methodKey) + ")";
     }
 
     private static String serviceOf(String methodKey) {
