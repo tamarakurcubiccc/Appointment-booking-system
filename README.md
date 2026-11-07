@@ -1,6 +1,8 @@
 # Appointment Booking System
 
-A microservices application for appointment booking and scheduling. The architecture consists of an API Gateway (Spring Cloud Gateway), a service registry (Eureka), a RabbitMQ message broker and five microservices built with Java and Spring Boot:
+[![build](https://github.com/tamarakurcubiccc/Appointment-booking-system/actions/workflows/build.yml/badge.svg)](https://github.com/tamarakurcubiccc/Appointment-booking-system/actions/workflows/build.yml)
+
+A microservices application for appointment booking and scheduling. The architecture consists of a React client, an API Gateway (Spring Cloud Gateway), a service registry (Eureka), a RabbitMQ message broker and five microservices built with Java and Spring Boot:
 
 - **User Service** - accounts, authentication, activation, password reset
 - **Catalog Service** - services on offer and their availability slots
@@ -8,15 +10,19 @@ A microservices application for appointment booking and scheduling. The architec
 - **Notification Service** - notification templates and e-mail dispatch
 - **Loyalty Service** - loyalty rules, appointment counters and rewards
 
+The **web client** (React + TypeScript, served by nginx) is the entry point for people; the gateway is the entry point for the API.
+
 Each service owns its own MySQL database and no service ever reads another service's schema. Synchronous calls between services go over REST (OpenFeign, load-balanced through Eureka); everything that does not have to be synchronous is an event on RabbitMQ.
 
 ## Architecture
 
 ```mermaid
 flowchart TB
-    client([Client])
+    browser([Browser])
+    web[web-client<br/>React, served by nginx]
     gw[API Gateway<br/>JWT validation, routing, circuit breakers]
-    client --> gw
+    browser --> web
+    web -->|/api| gw
 
     subgraph services [Microservices]
         user[user-service]
@@ -108,6 +114,18 @@ The system streamlines booking and managing appointments between clients and ser
 - **Redemption:** Synchronous, so the outcome is known while the booking is still in progress and one reward cannot be spent twice. Cancelling a booking that used a reward releases the reward back to the client.
 - **Idempotent consumption:** Processed event ids are recorded in the same transaction as the counter change, so a redelivered message cannot inflate a counter and hand out an unearned reward.
 
+### Web Client
+
+- **Public browsing:** The service catalogue and each provider's loyalty offer are visible without logging in.
+- **Registration and activation:** Registering explains that an activation e-mail is on its way; the link in that e-mail opens the client, which exchanges the token for a session. The same applies to password reset, so the tokens are never pasted by hand.
+- **Booking:** Picking a service shows its free future slots; past slots are filtered out rather than offered and then refused. A client holding a reward can spend it in the same step.
+- **My appointments:** Clients see their own bookings and can cancel; providers see the appointments booked with them.
+- **Loyalty:** Progress towards the next reward per provider, and the rewards themselves with their status and expiry.
+- **Notifications:** The inbox of everything the system sent, with the text as it was sent.
+- **Provider tools:** Create services, bulk-generate slots, define or retire the loyalty rule, and see which clients are close to a reward.
+- **Admin tools:** Revoke and restore access, and edit the text of any notification template without a redeploy.
+- **Roles in the UI are convenience, not security:** every rule is enforced again by the gateway and by the service that owns the data.
+
 ### API Gateway
 
 - **Single Entry Point:** All external traffic is routed through the gateway; the microservices are not exposed directly.
@@ -117,6 +135,7 @@ The system streamlines booking and managing appointments between clients and ser
 
 ## Technologies Used
 
+- **Frontend:** React 18, TypeScript, Vite, React Router, nginx
 - **Frameworks/Libraries:** Spring Boot 3.3, Spring Cloud Gateway (API Gateway), Eureka (Service Discovery), Spring Cloud LoadBalancer, OpenFeign, Resilience4j, Spring AMQP (RabbitMQ), Spring Security, Spring Data JPA, jjwt (JWT), springdoc-openapi (Swagger)
 - **Tools:** Java 21, MySQL 8 (a separate database per service), RabbitMQ, Mailpit (local SMTP), Docker & Docker Compose, Kubernetes, Maven, JUnit 5, Mockito, AssertJ
 
@@ -131,19 +150,24 @@ docker compose up --build -d
 
 | What | Where |
 |---|---|
-| API Gateway (entry point) | http://localhost:8080 |
+| Web client (entry point) | http://localhost:3000 |
+| API Gateway | http://localhost:8080 |
 | Eureka dashboard | http://localhost:8761 |
 | Mailpit - every e-mail the system sends | http://localhost:8025 |
 | RabbitMQ console | http://localhost:15672 |
 | Swagger UI per service | http://localhost:8081/swagger-ui.html … `8085` |
 
+For frontend work, `make web-dev` runs the Vite dev server on port 3000 against the running stack, with hot reload and the same `/api` proxy.
+
 `make help` lists the shortcuts. [api-examples.http](api-examples.http) walks through the whole system - registration, activation, booking, loyalty, notifications - and works in the IntelliJ HTTP Client or the VS Code REST Client.
 
-If port 8080 is taken on your machine, set `GATEWAY_PORT` in `.env` and change `ACTIVATION_BASE_URL`/`PASSWORD_RESET_BASE_URL` to match, so the links in the e-mails keep working.
+If port 8080 or 3000 is taken on your machine, set `GATEWAY_PORT` or `WEB_PORT` in `.env`. `ACTIVATION_BASE_URL`/`PASSWORD_RESET_BASE_URL` follow the **client** port, since those links open the client rather than the API.
 
 ### Kubernetes
 
-The manifests in [k8s/](k8s/) deploy the same images Compose builds: one namespace, a ConfigMap and a Secret for configuration, five MySQL StatefulSets with their own volumes, RabbitMQ, Mailpit, the registry, the gateway (2 replicas) and the five services - each with startup, readiness and liveness probes and resource limits.
+The manifests in [k8s/](k8s/) deploy the same images Compose builds: one namespace, a ConfigMap and a Secret for configuration, five MySQL StatefulSets with their own volumes, RabbitMQ, Mailpit, the registry, the gateway and the web client (2 replicas each) and the five services - 17 pods in total, each with startup, readiness and liveness probes and resource limits.
+
+Because Kubernetes has no equivalent of Compose's `depends_on`, every service pod runs a small init container that waits for its database (and the broker, where it uses one) before the application starts. Spring Boot exits when it cannot reach its database, so without that the first minute of a cold cluster would be a wall of `CrashLoopBackOff` - it recovers either way, but a restart count of zero means a restart that does appear is worth looking at.
 
 ```bash
 make k8s-images          # build the images into the local Docker daemon
@@ -155,7 +179,7 @@ make k8s-down            # delete the namespace with everything in it
 
 The manifests reference local images with `imagePullPolicy: IfNotPresent` and no registry. On Docker Desktop the cluster shares the Docker daemon, so `make k8s-images` is enough; on minikube run `make k8s-load-minikube` as well.
 
-Only the gateway is reachable from outside - through the Ingress at `appointment-booking.local` (needs an ingress controller and a hosts entry) or through `make k8s-forward`. Mailpit and the RabbitMQ console are deliberately not exposed: they are development tools, and anything that can read other people's mail or the message bus has no business being reachable from outside the cluster.
+The Ingress at `appointment-booking.local` routes `/api` to the gateway and everything else to the web client (needs an ingress controller and a hosts entry); `make k8s-forward` does the same job with port-forwards and no controller. Mailpit and the RabbitMQ console are deliberately not exposed: they are development tools, and anything that can read other people's mail or the message bus has no business being reachable from outside the cluster.
 
 Kubernetes has no equivalent of Compose's `depends_on`, so a service pod that starts before its database or the broker will fail and be restarted. That is what the startup probes are for: each pod gets roughly 150 seconds to come up before liveness checks begin, so restarts during the first minute of a cold cluster are expected rather than a symptom.
 
@@ -167,12 +191,18 @@ Kubernetes has no equivalent of Compose's `depends_on`, so a service pod that st
 - **Loyalty rules apply per provider, not per service.** The cancellation event carries no service id, so a per-service counter could not be corrected when a booking is cancelled.
 - **Reward expiry is evaluated when a reward is read or used,** not by a scheduled job rewriting rows. The status a client sees is correct either way, with one less moving part.
 - **Eureka is kept in Kubernetes** even though Kubernetes has its own service discovery. Running the same mechanism in both environments means one behaviour to debug instead of two; a Kubernetes-only deployment could drop it and use Service DNS directly.
+- **The client calls the API through its own nginx, not directly.** One origin means CORS never applies, which beats maintaining an allow-list of origins per environment. The gateway's CORS configuration is still there for anyone calling the API from elsewhere.
+- **Role checks in the client only decide what to render.** The token is validated at the gateway and every rule is enforced again by the service that owns the data, so a hidden button is a convenience and never the protection.
 - **The values in `.env.example` and `k8s/02-secrets.yaml` are development credentials.** A Kubernetes Secret is base64-encoded, not encrypted; that file documents how to create the Secret out of band for anything real.
 
 ## Testing
 
 ```bash
-make test          # or: mvn -B test
+make test                          # services:    mvn -B test
+cd web-client && npm run build     # web client:  type-check and bundle
 ```
+
+Every push runs both, plus a render of the Kubernetes manifests and a validation of the Compose file, in
+[GitHub Actions](.github/workflows/build.yml).
 
 The suite covers the logic worth protecting: the booking saga and its compensations, concurrent-booking conflicts, the activation and password-reset token rules, template rendering, notification idempotency, and the loyalty counter and redemption rules.
