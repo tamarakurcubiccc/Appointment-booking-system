@@ -26,7 +26,19 @@ spring:
           time_zone: UTC
         format_sql: false
 
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:booking}
+    password: ${RABBITMQ_PASSWORD:booking}
+
 security:
+  tokens:
+    # One-time links sent by e-mail. The reset window is short on purpose: the link is
+    # enough to take over the account, so it should not stay valid for long.
+    activation-ttl: ${ACTIVATION_TTL:24h}
+    password-reset-ttl: ${PASSWORD_RESET_TTL:1h}
+
   jwt:
     # Base64-encoded 256-bit key. Override in every environment (see .env.example).
     secret: ${JWT_SECRET:ZGV2LW9ubHktc2VjcmV0LWtleS1jaGFuZ2UtbWUtaW4tcHJvZHVjdGlvbi0xMjM0NTY3ODkw}

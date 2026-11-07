@@ -1,11 +1,18 @@
 ### Appointment Booking System - end-to-end walkthrough
 ### Works with the IntelliJ HTTP Client or the VS Code "REST Client" extension.
 ### Everything goes through the API Gateway.
+###
+### The port follows GATEWAY_PORT in .env - 8080 by default, 18080 on a machine where
+### something else (Apache/XAMPP) already owns 8080.
 
- http://localhost:18080
+@host = http://localhost:18080
+
+### Mailpit collects every e-mail the system sends. Open it in a browser to read the
+### activation and password-reset links: http://localhost:8025
+@mailpit = http://localhost:8025
 
 ### ---------------------------------------------------------------- 1. PROVIDER registers
-# @name registerProvider
+### Registration no longer returns a token - the account has to confirm its e-mail first.
 POST {{host}}/api/auth/register
 Content-Type: application/json
 
@@ -17,10 +24,7 @@ Content-Type: application/json
   "role": "PROVIDER"
 }
 
-> {% client.global.set("providerToken", response.body.accessToken); %}
-
 ### ---------------------------------------------------------------- 2. CLIENT registers
-# @name registerClient
 POST {{host}}/api/auth/register
 Content-Type: application/json
 
@@ -32,9 +36,9 @@ Content-Type: application/json
   "role": "CLIENT"
 }
 
-> {% client.global.set("clientToken", response.body.accessToken); %}
-
-### ---------------------------------------------------------------- 3. Log in (same token flow)
+### ---------------------------------------------------------------- 3. Login before activation -> 403
+### The message tells the user to look for the activation e-mail, which is different from
+### the message an account disabled by an admin gets.
 POST {{host}}/api/auth/login
 Content-Type: application/json
 
@@ -43,11 +47,47 @@ Content-Type: application/json
   "password": "password123"
 }
 
-### ---------------------------------------------------------------- 4. Current profile
+### ---------------------------------------------------------------- 4. Read the activation mails
+### Open http://localhost:8025 and copy the token out of each activation link, then paste
+### the two values below. Both mails arrive within a second of registering.
+###
+### For a scripted run the tokens can also be pulled from Mailpit's own API:
+###   GET {{mailpit}}/api/v1/search?query=to:ana@salon.rs
+###   GET {{mailpit}}/api/v1/message/{id}     -> the token sits in the "Text" field
+GET {{mailpit}}/api/v1/messages
+
+@providerActivationToken = paste-the-token-from-the-provider-mail
+@clientActivationToken = paste-the-token-from-the-client-mail
+
+### ---------------------------------------------------------------- 5. Activate the PROVIDER
+# @name activateProvider
+POST {{host}}/api/auth/activate?token={{providerActivationToken}}
+
+> {% client.global.set("providerToken", response.body.accessToken); %}
+
+### ---------------------------------------------------------------- 6. Activate the CLIENT
+# @name activateClient
+POST {{host}}/api/auth/activate?token={{clientActivationToken}}
+
+> {% client.global.set("clientToken", response.body.accessToken); %}
+
+### ---------------------------------------------------------------- 7. The same token works twice? -> 400
+POST {{host}}/api/auth/activate?token={{clientActivationToken}}
+
+### ---------------------------------------------------------------- 8. Log in (now that the account is active)
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "marko@example.com",
+  "password": "password123"
+}
+
+### ---------------------------------------------------------------- 9. Current profile
 GET {{host}}/api/users/me
 Authorization: Bearer {{clientToken}}
 
-### ---------------------------------------------------------------- 5. Provider creates a service
+### ---------------------------------------------------------------- 10. Provider creates a service
 # @name createService
 POST {{host}}/api/services
 Authorization: Bearer {{providerToken}}
@@ -62,34 +102,36 @@ Content-Type: application/json
 
 > {% client.global.set("serviceId", response.body.id); %}
 
-### ---------------------------------------------------------------- 6. Bulk-generate slots
+### ---------------------------------------------------------------- 11. Bulk-generate slots
+### Re-running this does not duplicate slots - generation is idempotent.
 POST {{host}}/api/services/{{serviceId}}/slots/generate
 Authorization: Bearer {{providerToken}}
 Content-Type: application/json
 
 {
-  "fromDate": "2026-07-20",
-  "toDate": "2026-07-24",
+  "fromDate": "2026-12-01",
+  "toDate": "2026-12-05",
   "workDayStart": "09:00:00",
   "workDayEnd": "17:00:00",
   "skipWeekend": true,
   "zoneId": "Europe/Belgrade"
 }
 
-### ---------------------------------------------------------------- 7. Browse the catalog (no token)
+### ---------------------------------------------------------------- 12. Browse the catalog (no token)
 GET {{host}}/api/services
 
-### ---------------------------------------------------------------- 8. Free slots for the service
+### ---------------------------------------------------------------- 13. Free slots for the service
 # @name freeSlots
 GET {{host}}/api/slots?serviceId={{serviceId}}&status=AVAILABLE
 
 > {% client.global.set("slotId", response.body[0].id); %}
 
-### ---------------------------------------------------------------- 9. Is the slot still free?
+### ---------------------------------------------------------------- 14. Is the slot still free?
 GET {{host}}/api/reservations/availability?slotId={{slotId}}
 Authorization: Bearer {{clientToken}}
 
-### ---------------------------------------------------------------- 10. Book it
+### ---------------------------------------------------------------- 15. Book it
+### Both the client and the provider receive a confirmation e-mail - check Mailpit.
 # @name book
 POST {{host}}/api/reservations
 Authorization: Bearer {{clientToken}}
@@ -103,7 +145,7 @@ Content-Type: application/json
 
 > {% client.global.set("reservationId", response.body.id); %}
 
-### ---------------------------------------------------------------- 11. Booking the same slot again -> 409
+### ---------------------------------------------------------------- 16. Booking the same slot again -> 409
 POST {{host}}/api/reservations
 Authorization: Bearer {{clientToken}}
 Content-Type: application/json
@@ -113,24 +155,55 @@ Content-Type: application/json
   "slotId": "{{slotId}}"
 }
 
-### ---------------------------------------------------------------- 12. My reservations
+### ---------------------------------------------------------------- 17. My reservations
 GET {{host}}/api/reservations/my
 Authorization: Bearer {{clientToken}}
 
-### ---------------------------------------------------------------- 13. Provider's schedule
+### ---------------------------------------------------------------- 18. Provider's schedule
 GET {{host}}/api/reservations/provider
 Authorization: Bearer {{providerToken}}
 
-### ---------------------------------------------------------------- 14. Cancel -> slot goes back to AVAILABLE
+### ---------------------------------------------------------------- 19. Cancel -> slot goes back to AVAILABLE
 POST {{host}}/api/reservations/{{reservationId}}/cancel
 Authorization: Bearer {{clientToken}}
 
-### ---------------------------------------------------------------- 15. Confirm the slot was released
+### ---------------------------------------------------------------- 20. Confirm the slot was released
 GET {{host}}/api/slots/{{slotId}}
 
-### ---------------------------------------------------------------- 16. Internal API is blocked at the gateway -> 404
+### ---------------------------------------------------------------- 21. Forgot the password
+### Always 202, even for an e-mail that is not registered - otherwise this endpoint would
+### reveal which addresses exist.
+POST {{host}}/api/auth/password-reset-request
+Content-Type: application/json
+
+{
+  "email": "marko@example.com"
+}
+
+### ---------------------------------------------------------------- 22. Set a new password
+### The token comes from the reset mail in Mailpit and is valid for one hour, once.
+@resetToken = paste-the-token-from-the-reset-mail
+
+POST {{host}}/api/auth/password-reset
+Content-Type: application/json
+
+{
+  "token": "{{resetToken}}",
+  "newPassword": "newPassword456"
+}
+
+### ---------------------------------------------------------------- 23. Log in with the new password
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "marko@example.com",
+  "password": "newPassword456"
+}
+
+### ---------------------------------------------------------------- 24. Internal API is blocked at the gateway -> 404
 GET {{host}}/api/internal/slots/{{slotId}}
 Authorization: Bearer {{clientToken}}
 
-### ---------------------------------------------------------------- 17. No token -> 401
+### ---------------------------------------------------------------- 25. No token -> 401
 GET {{host}}/api/reservations/my

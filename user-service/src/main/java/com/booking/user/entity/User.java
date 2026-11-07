@@ -39,8 +39,17 @@ public class User {
     @Column(nullable = false, length = 20)
     private Role role = Role.CLIENT;
 
+    /** Administratorski prekidač. Nezavisan od aktivacije - deaktiviran nalog ostaje aktiviran. */
     @Column(nullable = false)
     private boolean enabled = true;
+
+    /**
+     * Trenutak potvrde e-mail adrese; null znači da nalog još nije aktiviran.
+     * Namerno je odvojeno od {@code enabled}: "nije još potvrdio e-mail" i
+     * "administrator mu je ukinuo pristup" su različita stanja sa različitim porukama.
+     */
+    @Column(name = "activated_at")
+    private Instant activatedAt;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
@@ -54,6 +63,17 @@ public class User {
         this.fullName = fullName;
         this.phone = phone;
         this.role = role;
+    }
+
+    /** Poziva se kada korisnik otvori aktivacioni link. Ponovna aktivacija ne menja datum. */
+    public void activate() {
+        if (this.activatedAt == null) {
+            this.activatedAt = Instant.now();
+        }
+    }
+
+    public boolean isActivated() {
+        return activatedAt != null;
     }
 
     public UUID getId() {
@@ -102,6 +122,10 @@ public class User {
 
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
+    }
+
+    public Instant getActivatedAt() {
+        return activatedAt;
     }
 
     public Instant getCreatedAt() {

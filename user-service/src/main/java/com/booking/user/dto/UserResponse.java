@@ -13,10 +13,11 @@ public record UserResponse(
         String phone,
         Role role,
         boolean enabled,
+        boolean activated,
         Instant createdAt
 ) {
     public static UserResponse from(User user) {
-        return new UserResponse(user.getId(), user.getEmail(), user.getFullName(),
-                user.getPhone(), user.getRole(), user.isEnabled(), user.getCreatedAt());
+        return new UserResponse(user.getId(), user.getEmail(), user.getFullName(), user.getPhone(),
+                user.getRole(), user.isEnabled(), user.isActivated(), user.getCreatedAt());
     }
 }

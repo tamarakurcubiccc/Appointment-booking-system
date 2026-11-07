@@ -2,6 +2,7 @@ package com.booking.user.config;
 
 import com.booking.common.security.GatewayAuthenticationFilter;
 import com.booking.user.security.JwtProperties;
+import com.booking.user.security.TokenProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,7 +20,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
-@EnableConfigurationProperties(JwtProperties.class)
+@EnableConfigurationProperties({JwtProperties.class, TokenProperties.class})
 public class SecurityConfig {
 
     @Bean
