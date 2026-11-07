@@ -26,6 +26,7 @@
         <module>catalog-service</module>
         <module>reservation-service</module>
         <module>notification-service</module>
+        <module>loyalty-service</module>
     </modules>
 
     <properties>

@@ -97,6 +97,17 @@ services:
     ports: ["${NOTIFICATION_DB_PORT:-13309}:3306"]
     volumes: ["mysql-notification-data:/var/lib/mysql"]
 
+  mysql-loyalty:
+    <<: *mysql-common
+    container_name: mysql-loyalty
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_USER: ${MYSQL_USER:-booking}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-booking}
+      MYSQL_DATABASE: loyalty_db
+    ports: ["${LOYALTY_DB_PORT:-13310}:3306"]
+    volumes: ["mysql-loyalty-data:/var/lib/mysql"]
+
   # --------------------------- infrastructure ---------------------------
   # Asinhrona komunikacija: reservation-service i user-service objavljuju događaje,
   # notification-service ih troši. Konzola: http://localhost:15672
@@ -258,6 +269,28 @@ services:
       mailpit:
         condition: service_started
 
+  loyalty-service:
+    <<: *service-common
+    build:
+      context: .
+      args:
+        MODULE: loyalty-service
+    container_name: loyalty-service
+    environment:
+      <<: *service-env
+      SERVER_PORT: 8085
+      DB_HOST: mysql-loyalty
+      DB_NAME: loyalty_db
+    ports: ["8085:8085"]
+    depends_on:
+      mysql-loyalty:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
+      # Redove i vezivanja deklariše ovaj servis pri pokretanju, pa broker mora da radi.
+      rabbitmq:
+        condition: service_healthy
+
 networks:
   booking-net:
     driver: bridge
@@ -267,4 +300,5 @@ volumes:
   mysql-catalog-data:
   mysql-reservation-data:
   mysql-notification-data:
+  mysql-loyalty-data:
   rabbitmq-data:

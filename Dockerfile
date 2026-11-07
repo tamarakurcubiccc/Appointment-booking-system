@@ -19,6 +19,7 @@ COPY user-service/pom.xml user-service/
 COPY catalog-service/pom.xml catalog-service/
 COPY reservation-service/pom.xml reservation-service/
 COPY notification-service/pom.xml notification-service/
+COPY loyalty-service/pom.xml loyalty-service/
 
 # `|| true`: go-offline cannot always resolve intra-reactor modules; the real
 # build below fills any gaps. This step exists purely to warm the layer cache.

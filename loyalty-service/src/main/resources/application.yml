@@ -1,0 +1,73 @@
+server:
+  port: ${SERVER_PORT:8085}
+
+spring:
+  application:
+    name: loyalty-service
+
+  datasource:
+    # useSSL=false together with allowPublicKeyRetrieval=true is required for MySQL 8 over
+    # a plain connection: the caching_sha2_password handshake otherwise refuses to hand over
+    # the server public key. serverTimezone pins UTC so Instant values are never shifted.
+    url: "jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3310}/${DB_NAME:loyalty_db}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
+    username: ${DB_USER:booking}
+    password: ${DB_PASSWORD:booking}
+    hikari:
+      maximum-pool-size: 10
+      pool-name: loyalty-service-pool
+
+  jpa:
+    hibernate:
+      ddl-auto: ${DDL_AUTO:update}
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:booking}
+    password: ${RABBITMQ_PASSWORD:booking}
+    listener:
+      simple:
+        # A rejected message goes to the dead-letter exchange instead of back into the queue,
+        # so a message this service can never process cannot loop forever.
+        default-requeue-rejected: false
+        retry:
+          enabled: true
+          initial-interval: 2s
+          max-attempts: 4
+          multiplier: 2
+          max-interval: 20s
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${random.uuid}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  level:
+    com.booking: INFO
