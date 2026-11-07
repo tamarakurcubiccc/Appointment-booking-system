@@ -29,6 +29,12 @@ spring:
     serialization:
       write-dates-as-timestamps: false
 
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:booking}
+    password: ${RABBITMQ_PASSWORD:booking}
+
   cloud:
     # Since Spring Cloud 2022.0 the OpenFeign properties live under spring.cloud.openfeign.*
     openfeign:

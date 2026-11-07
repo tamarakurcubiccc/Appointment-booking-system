@@ -1,5 +1,8 @@
 package com.booking.reservation.service;
 
+import com.booking.common.event.BookingEvents;
+import com.booking.common.event.ReservationCancelledEvent;
+import com.booking.common.event.ReservationCreatedEvent;
 import com.booking.common.exception.ApiException;
 import com.booking.reservation.client.CatalogClient;
 import com.booking.reservation.client.CatalogPublicClient;
@@ -10,10 +13,12 @@ import com.booking.reservation.client.UserDto;
 import com.booking.reservation.dto.CreateReservationRequest;
 import com.booking.reservation.entity.Reservation;
 import com.booking.reservation.entity.ReservationStatus;
+import com.booking.reservation.messaging.DomainEventPublisher;
 import com.booking.reservation.repository.ReservationRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -43,6 +48,8 @@ class ReservationServiceTest {
     private CatalogPublicClient catalogPublicClient;
     @Mock
     private UserClient userClient;
+    @Mock
+    private DomainEventPublisher events;
 
     @InjectMocks
     private ReservationService service;
@@ -183,5 +190,53 @@ class ReservationServiceTest {
                 .isEqualTo(HttpStatus.FORBIDDEN);
 
         verify(catalogClient, never()).releaseSlot(any());
+    }
+
+    @Test
+    void bookingPublishesTheConfirmationEvent() {
+        Instant start = Instant.now().plus(2, ChronoUnit.DAYS);
+        when(catalogClient.getSlot(slotId)).thenReturn(slot("AVAILABLE", start));
+        when(repository.existsBySlotIdAndStatus(slotId, ReservationStatus.CONFIRMED)).thenReturn(false);
+        when(catalogPublicClient.getService(serviceId)).thenReturn(offering(true));
+        when(repository.save(any(Reservation.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.book(clientId, new CreateReservationRequest(serviceId, slotId, null));
+
+        var event = ArgumentCaptor.forClass(ReservationCreatedEvent.class);
+        verify(events).publish(org.mockito.ArgumentMatchers.eq(BookingEvents.RESERVATION_CREATED), event.capture());
+        assertThat(event.getValue().clientId()).isEqualTo(clientId);
+        assertThat(event.getValue().providerId()).isEqualTo(providerId);
+        assertThat(event.getValue().startTime()).isEqualTo(start);
+    }
+
+    @Test
+    void aFailedBookingPublishesNothing() {
+        Instant start = Instant.now().plus(2, ChronoUnit.DAYS);
+        when(catalogClient.getSlot(slotId)).thenReturn(slot("AVAILABLE", start));
+        when(repository.existsBySlotIdAndStatus(slotId, ReservationStatus.CONFIRMED)).thenReturn(false);
+        when(catalogPublicClient.getService(serviceId)).thenReturn(offering(true));
+        when(repository.save(any(Reservation.class))).thenThrow(new IllegalStateException("db down"));
+
+        assertThatThrownBy(() -> service.book(clientId, new CreateReservationRequest(serviceId, slotId, null)))
+                .isInstanceOf(IllegalStateException.class);
+
+        // Obaveštenje o zakazivanju koje nije uspelo ne sme da izađe.
+        verify(events, never()).publish(any(), any());
+    }
+
+    @Test
+    void cancellationPublishesWhoCancelled() {
+        Instant start = Instant.now().plus(1, ChronoUnit.DAYS);
+        var reservation = new Reservation(clientId, providerId, serviceId, slotId, "Šišanje",
+                start, start.plus(30, ChronoUnit.MINUTES), null);
+        var id = UUID.randomUUID();
+        when(repository.findById(id)).thenReturn(java.util.Optional.of(reservation));
+
+        service.cancel(id, providerId, false);
+
+        var event = ArgumentCaptor.forClass(ReservationCancelledEvent.class);
+        verify(events).publish(org.mockito.ArgumentMatchers.eq(BookingEvents.RESERVATION_CANCELLED), event.capture());
+        assertThat(event.getValue().cancelledBy()).isEqualTo(providerId);
+        assertThat(event.getValue().serviceName()).isEqualTo("Šišanje");
     }
 }

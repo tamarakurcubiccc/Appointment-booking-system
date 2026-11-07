@@ -1,5 +1,8 @@
 package com.booking.reservation.service;
 
+import com.booking.common.event.BookingEvents;
+import com.booking.common.event.ReservationCancelledEvent;
+import com.booking.common.event.ReservationCreatedEvent;
 import com.booking.common.exception.ApiException;
 import com.booking.reservation.client.CatalogClient;
 import com.booking.reservation.client.CatalogPublicClient;
@@ -11,6 +14,7 @@ import com.booking.reservation.dto.ReservationResponse;
 import com.booking.reservation.dto.SlotAvailabilityResponse;
 import com.booking.reservation.entity.Reservation;
 import com.booking.reservation.entity.ReservationStatus;
+import com.booking.reservation.messaging.DomainEventPublisher;
 import com.booking.reservation.repository.ReservationRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,15 +37,18 @@ public class ReservationService {
     private final CatalogClient catalogClient;
     private final CatalogPublicClient catalogPublicClient;
     private final UserClient userClient;
+    private final DomainEventPublisher events;
 
     public ReservationService(ReservationRepository repository,
                               CatalogClient catalogClient,
                               CatalogPublicClient catalogPublicClient,
-                              UserClient userClient) {
+                              UserClient userClient,
+                              DomainEventPublisher events) {
         this.repository = repository;
         this.catalogClient = catalogClient;
         this.catalogPublicClient = catalogPublicClient;
         this.userClient = userClient;
+        this.events = events;
     }
 
     /**
@@ -83,6 +90,14 @@ public class ReservationService {
                     offering.name(), slot.startTime(), slot.endTime(), request.note());
             repository.save(reservation);
             log.info("Client {} booked slot {} (reservation {})", clientId, slot.id(), reservation.getId());
+
+            // Obaveštenja idu asinhrono - klijent ne čeka na slanje e-maila, a pad
+            // notification-service ne može da obori zakazivanje.
+            events.publish(BookingEvents.RESERVATION_CREATED, new ReservationCreatedEvent(
+                    UUID.randomUUID(), Instant.now(), reservation.getId(), reservation.getClientId(),
+                    reservation.getProviderId(), reservation.getServiceId(), reservation.getServiceName(),
+                    reservation.getStartTime(), reservation.getEndTime()));
+
             return ReservationResponse.from(reservation);
         } catch (RuntimeException ex) {
             log.error("Persisting the reservation failed - releasing slot {}", request.slotId(), ex);
@@ -124,6 +139,11 @@ public class ReservationService {
         } else {
             safeRelease(slotId);
         }
+
+        events.publish(BookingEvents.RESERVATION_CANCELLED, new ReservationCancelledEvent(
+                UUID.randomUUID(), Instant.now(), reservation.getId(), reservation.getClientId(),
+                reservation.getProviderId(), reservation.getServiceName(),
+                reservation.getStartTime(), callerId));
 
         log.info("Reservation {} cancelled by {}", reservationId, callerId);
         return ReservationResponse.from(reservation);
