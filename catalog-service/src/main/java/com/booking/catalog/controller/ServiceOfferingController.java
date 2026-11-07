@@ -27,7 +27,6 @@ import java.util.UUID;
 @RequestMapping("/api/services")
 @Tag(name = "Usluge")
 public class ServiceOfferingController {
-
     private final ServiceCatalogService service;
 
     public ServiceOfferingController(ServiceCatalogService service) {

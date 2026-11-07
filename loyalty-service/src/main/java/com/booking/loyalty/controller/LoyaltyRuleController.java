@@ -27,7 +27,6 @@ import java.util.UUID;
 @RequestMapping("/api/loyalty/rules")
 @Tag(name = "Pravila lojalnosti")
 public class LoyaltyRuleController {
-
     private final LoyaltyRuleService service;
 
     public LoyaltyRuleController(LoyaltyRuleService service) {

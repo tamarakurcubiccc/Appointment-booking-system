@@ -16,17 +16,10 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Endpointi za komunikaciju između servisa. Nisu izloženi kroz API Gateway.
- *
- * <p>Korišćenje nagrade je sinhrono, za razliku od brojanja termina: ishod mora da bude
- * poznat dok zakazivanje još traje, da se nagrada ne bi iskoristila dva puta.
- */
 @RestController
 @RequestMapping("/api/internal/loyalty")
 @Tag(name = "Interno")
 public class InternalLoyaltyController {
-
     private final LoyaltyService service;
 
     public InternalLoyaltyController(LoyaltyService service) {

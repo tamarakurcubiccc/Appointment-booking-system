@@ -14,13 +14,8 @@ import org.springframework.stereotype.Component;
 
 import java.util.Map;
 
-/**
- * Obaveštenja koja prate životni ciklus naloga. Podaci o korisniku dolaze u samom
- * događaju - događaj je o tom korisniku, pa dodatni poziv ka user-service nije potreban.
- */
 @Component
 public class UserEventListener {
-
     private static final Logger log = LoggerFactory.getLogger(UserEventListener.class);
 
     private final NotificationService notifications;

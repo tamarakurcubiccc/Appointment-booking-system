@@ -5,10 +5,6 @@ import com.booking.loyalty.entity.LoyaltyAccount;
 import java.time.Instant;
 import java.util.UUID;
 
-/**
- * @param appointmentsUntilReward Koliko termina još treba do nagrade, ili null kada
- *                                pružalac trenutno nema aktivno pravilo lojalnosti.
- */
 public record LoyaltyAccountResponse(
         UUID clientId,
         UUID providerId,

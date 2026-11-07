@@ -11,14 +11,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
 
-/**
- * Endpointi za komunikaciju između servisa. Nisu izloženi kroz API Gateway.
- */
 @RestController
 @RequestMapping("/api/internal/users")
 @Tag(name = "Interno")
 public class InternalUserController {
-
     private final UserAccountService service;
 
     public InternalUserController(UserAccountService service) {

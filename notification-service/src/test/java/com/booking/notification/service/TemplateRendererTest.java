@@ -9,7 +9,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class TemplateRendererTest {
-
     private final TemplateRenderer renderer = new TemplateRenderer();
 
     @Test
@@ -27,7 +26,6 @@ class TemplateRendererTest {
 
     @Test
     void treatsDollarSignsInValuesAsPlainText() {
-        // $1 bi inače bilo protumačeno kao referenca na grupu u regex zameni.
         assertThat(renderer.render("Cena: {{cena}}", Map.of("cena", "$1,00")))
                 .isEqualTo("Cena: $1,00");
     }

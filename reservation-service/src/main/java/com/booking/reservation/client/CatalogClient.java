@@ -7,14 +7,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 
 import java.util.UUID;
 
-/**
- * Inter-servisna REST komunikacija. URL se razrešava kroz Eureka
- * ("catalog-service" je spring.application.name odredišta) i
- * balansira opterećenje pomoću Spring Cloud LoadBalancer-a.
- */
 @FeignClient(name = "catalog-service", path = "/api/internal")
 public interface CatalogClient {
-
     @GetMapping("/slots/{slotId}")
     SlotDto getSlot(@PathVariable UUID slotId);
 

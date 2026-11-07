@@ -10,18 +10,9 @@ import org.hibernate.type.SqlTypes;
 import java.time.Instant;
 import java.util.UUID;
 
-/**
- * Evidencija obrađenih događaja (inbox obrazac).
- *
- * <p>Brojač termina nije idempotentan sam po sebi - ponovna dostava iste poruke iz
- * RabbitMQ-a bi ga uvećala dva puta i klijent bi dobio nagradu koju nije zaslužio.
- * Id događaja je primarni ključ, pa se upisuje u istoj transakciji u kojoj se menja
- * brojač: ili su oba upisa prošla, ili nijedan.
- */
 @Entity
 @Table(name = "processed_events")
 public class ProcessedEvent {
-
     @Id
     @Column(name = "event_id", nullable = false, updatable = false)
     @JdbcTypeCode(SqlTypes.CHAR)

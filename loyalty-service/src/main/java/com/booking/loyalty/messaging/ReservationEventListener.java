@@ -11,13 +11,8 @@ import org.springframework.amqp.AmqpRejectAndDontRequeueException;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 
-/**
- * Brojač termina se vodi isključivo iz događaja - loyalty-service nikada ne čita bazu
- * reservation-service, niti ga reservation-service poziva da bi zakazivanje uspelo.
- */
 @Component
 public class ReservationEventListener {
-
     private static final Logger log = LoggerFactory.getLogger(ReservationEventListener.class);
 
     private final LoyaltyService loyaltyService;
@@ -33,7 +28,6 @@ public class ReservationEventListener {
         try {
             loyaltyService.registerAppointment(event.eventId(), event.clientId(), event.providerId());
         } catch (ApiException ex) {
-            // Deterministička greška - ponavljanje ne bi pomoglo, poruka ide na dead-letter red.
             throw new AmqpRejectAndDontRequeueException(ex.getMessage(), ex);
         }
     }

@@ -17,7 +17,6 @@ import java.util.List;
 @RequestMapping("/api/loyalty")
 @Tag(name = "Lojalnost")
 public class LoyaltyController {
-
     private final LoyaltyService service;
 
     public LoyaltyController(LoyaltyService service) {

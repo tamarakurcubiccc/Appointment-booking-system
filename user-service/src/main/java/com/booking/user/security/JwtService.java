@@ -12,7 +12,6 @@ import java.util.Date;
 
 @Service
 public class JwtService {
-
     private final JwtProperties properties;
     private final SecretKey key;
 

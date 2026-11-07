@@ -14,10 +14,6 @@ import org.hibernate.type.SqlTypes;
 import java.time.Instant;
 import java.util.UUID;
 
-/**
- * Dodeljena nagrada. Opis se kopira iz pravila u momentu dodele - kasnija izmena pravila
- * ne sme da promeni ono što je klijentu već obećano.
- */
 @Entity
 @Table(
         name = "loyalty_rewards",
@@ -28,7 +24,6 @@ import java.util.UUID;
         }
 )
 public class LoyaltyReward {
-
     @Id
     @GeneratedValue
     @JdbcTypeCode(SqlTypes.CHAR)
@@ -62,7 +57,6 @@ public class LoyaltyReward {
     @Column(name = "redeemed_at")
     private Instant redeemedAt;
 
-    /** Rezervacija u kojoj je nagrada iskorišćena; null dok je nagrada slobodna. */
     @Column(name = "reservation_id")
     @JdbcTypeCode(SqlTypes.CHAR)
     private UUID reservationId;
@@ -78,11 +72,6 @@ public class LoyaltyReward {
         this.expiresAt = expiresAt;
     }
 
-    /**
-     * Status se ne menja pozadinskim poslom nego se istek proverava pri čitanju i korišćenju.
-     * Zakazani job koji bi prelazio sve nagrade bio bi još jedan pokretni deo, a jedini
-     * rezultat mu je kolona koja se i ovako može izračunati.
-     */
     public boolean isUsable() {
         return status == RewardStatus.AVAILABLE && expiresAt.isAfter(Instant.now());
     }
@@ -97,7 +86,6 @@ public class LoyaltyReward {
         this.reservationId = reservationId;
     }
 
-    /** Otkazana rezervacija vraća nagradu klijentu - nije je iskoristio. */
     public void release() {
         this.status = expiresAt.isAfter(Instant.now()) ? RewardStatus.AVAILABLE : RewardStatus.EXPIRED;
         this.redeemedAt = null;

@@ -44,7 +44,6 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ReservationServiceTest {
-
     @Mock
     private ReservationRepository repository;
     @Mock
@@ -148,7 +147,6 @@ class ReservationServiceTest {
         assertThatThrownBy(() -> service.book(clientId, new CreateReservationRequest(serviceId, slotId, null, null)))
                 .isInstanceOf(IllegalStateException.class);
 
-        // Kompenzaciona akcija - termin ne sme ostati zaglavljen u BOOKED.
         verify(catalogClient, times(1)).releaseSlot(slotId);
     }
 
@@ -227,7 +225,6 @@ class ReservationServiceTest {
         assertThatThrownBy(() -> service.book(clientId, new CreateReservationRequest(serviceId, slotId, null, null)))
                 .isInstanceOf(IllegalStateException.class);
 
-        // Obaveštenje o zakazivanju koje nije uspelo ne sme da izađe.
         verify(events, never()).publish(any(), any());
     }
 
@@ -292,7 +289,6 @@ class ReservationServiceTest {
                 .extracting(e -> ((ApiException) e).getStatus())
                 .isEqualTo(HttpStatus.BAD_REQUEST);
 
-        // Termin nije ni zauzet, pa nema ni kompenzacije.
         verify(catalogClient, never()).bookSlot(any());
         verify(catalogClient, never()).releaseSlot(any());
     }
@@ -314,7 +310,6 @@ class ReservationServiceTest {
                 new CreateReservationRequest(serviceId, slotId, null, rewardId)))
                 .isInstanceOf(ApiException.class);
 
-        // Rezervacija se briše, termin se vraća u AVAILABLE, obaveštenje ne izlazi.
         verify(repository).delete(any(Reservation.class));
         verify(catalogClient).releaseSlot(slotId);
         verify(events, never()).publish(any(), any());

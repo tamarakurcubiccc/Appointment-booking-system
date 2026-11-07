@@ -32,7 +32,6 @@ import java.util.UUID;
 
 @Service
 public class ReservationService {
-
     private static final Logger log = LoggerFactory.getLogger(ReservationService.class);
 
     private final ReservationRepository repository;
@@ -56,18 +55,6 @@ public class ReservationService {
         this.events = events;
     }
 
-    /**
-     * Tok rezervacije:
-     *   1. učitaj termin iz catalog-service i validiraj ga
-     *   2. ako je poslata nagrada lojalnosti - proveri da je klijent sme koristiti
-     *   3. zatraži od catalog-service da ga atomično označi kao BOOKED (409 ako je neko bio brži)
-     *   4. sačuvaj rezervaciju
-     *   5. potvrdi korišćenje nagrade u loyalty-service (zna se id rezervacije)
-     *   6. ako korak 4 ili 5 ne uspe -> kompenzacija: obriši rezervaciju i vrati termin nazad
-     *
-     * Lokalna transakcija se otvara samo oko koraka 3 kako spor REST poziv
-     * nikada ne bi držao otvorenu konekciju ka bazi.
-     */
     public ReservationResponse book(UUID clientId, CreateReservationRequest request) {
         SlotDto slot = catalogClient.getSlot(request.slotId());
 
@@ -89,13 +76,10 @@ public class ReservationService {
             throw ApiException.badRequest("Usluga više nije aktivna");
         }
 
-        // Provera pre zauzimanja termina: neispravna nagrada se odbija bez ikakve
-        // izmene stanja, pa nema šta da se kompenzuje.
         if (request.rewardId() != null) {
             assertRewardUsable(clientId, slot.providerId(), request.rewardId());
         }
 
-        // Korak 2 - jedini izvor istine za "ko je dobio termin".
         catalogClient.bookSlot(request.slotId());
 
         try {
@@ -110,8 +94,6 @@ public class ReservationService {
 
             log.info("Client {} booked slot {} (reservation {})", clientId, slot.id(), reservation.getId());
 
-            // Obaveštenja idu asinhrono - klijent ne čeka na slanje e-maila, a pad
-            // notification-service ne može da obori zakazivanje.
             events.publish(BookingEvents.RESERVATION_CREATED, new ReservationCreatedEvent(
                     UUID.randomUUID(), Instant.now(), reservation.getId(), reservation.getClientId(),
                     reservation.getProviderId(), reservation.getServiceId(), reservation.getServiceName(),
@@ -144,9 +126,6 @@ public class ReservationService {
 
         reservation.cancel();
 
-        // Oslobodi termin u catalog-u tek NAKON što je ovo otkazivanje trajno komitovano.
-        // Oslobađanje pre commit-a rizikuje da termin pređe u AVAILABLE dok rollback ostavlja
-        // rezervaciju u CONFIRMED - tj. prozor za dvostruku rezervaciju.
         UUID slotId = reservation.getSlotId();
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
@@ -191,10 +170,6 @@ public class ReservationService {
         return ReservationResponse.from(reservation);
     }
 
-    /**
-     * Kontakt podaci klijenta koji je napravio rezervaciju - za prikaz rasporeda pružaocu usluge.
-     * Podaci se nalaze u user-service, pa se dohvataju preko REST-a umesto da se ovde dupliraju.
-     */
     public UserDto clientDetails(UUID reservationId, UUID callerId, boolean admin) {
         var reservation = repository.findById(reservationId)
                 .orElseThrow(() -> ApiException.notFound("Rezervacija " + reservationId + " nije pronađena"));
@@ -205,7 +180,6 @@ public class ReservationService {
         return userClient.getUser(reservation.getClientId());
     }
 
-    /** Jeftina pred-provera koju UI može pozvati pre prikazivanja dugmeta "Book". */
     public SlotAvailabilityResponse checkAvailability(UUID slotId) {
         SlotDto slot = catalogClient.getSlot(slotId);
 
@@ -221,12 +195,6 @@ public class ReservationService {
         return SlotAvailabilityResponse.free(slotId);
     }
 
-    /**
-     * Nagrada se potvrđuje posle upisa rezervacije, jer loyalty-service pamti u kojoj je
-     * rezervaciji iskorišćena. Ako potvrda ne prođe - nagrada je u međuvremenu iskorišćena
-     * ili je istekla - rezervacija se briše, a spoljni catch oslobađa termin. Klijent
-     * dobija grešku i nijedna strana ne ostaje u polovičnom stanju.
-     */
     private void redeemReward(Reservation reservation, UUID clientId) {
         try {
             loyaltyClient.redeem(new RedeemRewardRequest(reservation.getRewardId(), clientId,
@@ -253,8 +221,6 @@ public class ReservationService {
         try {
             catalogClient.releaseSlot(slotId);
         } catch (RuntimeException ex) {
-            // Ne obaraj otkazivanje zbog ovoga - zakazani job za usklađivanje
-            // bi pokupio zaostali termin (vidi README - Known trade-offs).
             log.error("Failed to release slot {} - manual reconciliation may be needed", slotId, ex);
         }
     }

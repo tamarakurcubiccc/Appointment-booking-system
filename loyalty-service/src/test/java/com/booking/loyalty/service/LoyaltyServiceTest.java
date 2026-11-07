@@ -32,7 +32,6 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class LoyaltyServiceTest {
-
     @Mock
     private LoyaltyAccountRepository accounts;
     @Mock
@@ -91,7 +90,7 @@ class LoyaltyServiceTest {
         service.registerAppointment(eventId, clientId, providerId);
 
         verify(rewards).save(any(LoyaltyReward.class));
-        // Prag je potrošen, a ukupan broj termina ostaje.
+
         assertThat(account.getAppointmentsTowardsReward()).isZero();
         assertThat(account.getTotalAppointments()).isEqualTo(3);
     }
@@ -105,7 +104,6 @@ class LoyaltyServiceTest {
 
         service.registerAppointment(eventId, clientId, providerId);
 
-        // 5 termina uz prag 3 -> jedna nagrada i 2 termina ka sledećoj.
         assertThat(account.getAppointmentsTowardsReward()).isEqualTo(2);
     }
 

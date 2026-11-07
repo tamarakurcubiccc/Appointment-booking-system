@@ -1,8 +1,6 @@
 package com.booking.notification.service;
 
-/** Šifre šablona na koje se poziva kod. Tekst šablona administrator menja kroz API. */
 public final class TemplateCodes {
-
     public static final String ACCOUNT_ACTIVATION = "ACCOUNT_ACTIVATION";
     public static final String PASSWORD_RESET = "PASSWORD_RESET";
     public static final String RESERVATION_CONFIRMED_CLIENT = "RESERVATION_CONFIRMED_CLIENT";

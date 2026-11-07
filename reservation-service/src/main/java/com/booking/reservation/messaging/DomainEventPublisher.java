@@ -10,7 +10,6 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 @Component
 public class DomainEventPublisher {
-
     private static final Logger log = LoggerFactory.getLogger(DomainEventPublisher.class);
 
     private final RabbitTemplate rabbitTemplate;
@@ -19,11 +18,6 @@ public class DomainEventPublisher {
         this.rabbitTemplate = rabbitTemplate;
     }
 
-    /**
-     * Objavljuje događaj tek NAKON commit-a tekuće transakcije, isto kao što se i termin
-     * oslobađa iz afterCommit-a: otkazivanje koje se vratilo nazad ne sme da pošalje
-     * e-mail "termin je otkazan" za rezervaciju koja je i dalje potvrđena.
-     */
     public void publish(String routingKey, Object event) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
@@ -37,11 +31,6 @@ public class DomainEventPublisher {
         }
     }
 
-    /**
-     * Greška pri objavljivanju se loguje, a ne prosleđuje: rezervacija je već sačuvana i
-     * termin je zauzet, pa pad zbog nedostupnog brokera ne bi doneo ništa dobro - klijent
-     * bi dobio grešku za zakazivanje koje je uspelo. Cena je dostava "najviše jednom".
-     */
     private void send(String routingKey, Object event) {
         try {
             rabbitTemplate.convertAndSend(BookingEvents.EXCHANGE, routingKey, event);

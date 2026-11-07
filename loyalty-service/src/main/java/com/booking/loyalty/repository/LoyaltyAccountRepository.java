@@ -8,7 +8,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface LoyaltyAccountRepository extends JpaRepository<LoyaltyAccount, UUID> {
-
     Optional<LoyaltyAccount> findByClientIdAndProviderId(UUID clientId, UUID providerId);
 
     List<LoyaltyAccount> findByClientIdOrderByUpdatedAtDesc(UUID clientId);

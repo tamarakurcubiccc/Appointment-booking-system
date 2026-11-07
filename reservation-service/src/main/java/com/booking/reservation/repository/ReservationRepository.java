@@ -10,7 +10,6 @@ import java.util.List;
 import java.util.UUID;
 
 public interface ReservationRepository extends JpaRepository<Reservation, UUID> {
-
     Page<Reservation> findByClientIdOrderByStartTimeDesc(UUID clientId, Pageable pageable);
 
     Page<Reservation> findByProviderIdOrderByStartTimeDesc(UUID providerId, Pageable pageable);

@@ -28,7 +28,6 @@ import java.util.UUID;
 @RequestMapping("/api/reservations")
 @Tag(name = "Rezervacije")
 public class ReservationController {
-
     private final ReservationService service;
 
     public ReservationController(ReservationService service) {

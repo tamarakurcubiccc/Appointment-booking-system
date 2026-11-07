@@ -18,7 +18,6 @@ import java.util.Optional;
 
 @Service
 public class NotificationTemplateService {
-
     private static final Logger log = LoggerFactory.getLogger(NotificationTemplateService.class);
 
     private final NotificationTemplateRepository repository;
@@ -75,7 +74,6 @@ public class NotificationTemplateService {
         return NotificationTemplateResponse.from(getOrThrow(code));
     }
 
-    /** Samo aktivni šablon se šalje - deaktiviranje je način da administrator ugasi jedno obaveštenje. */
     @Transactional(readOnly = true)
     public Optional<NotificationTemplate> findActive(String code) {
         return repository.findByCode(code).filter(NotificationTemplate::isActive);
@@ -91,7 +89,6 @@ public class NotificationTemplateService {
                 renderer.render(template.getBody(), values));
     }
 
-    /** Ne menja postojeći šablon - administrator je mogao da promeni tekst, to ima prednost. */
     @Transactional
     public void createIfAbsent(String code, String description, String subject, String body) {
         if (repository.existsByCode(code)) {

@@ -14,20 +14,9 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/**
- * AMQP topologija ovog servisa.
- *
- * <p>Po jedan red za svaki tip događaja, a ne jedan zajednički: tako jedna neispravna
- * poruka (npr. zahtev za reset lozinke koji stalno pada) ne blokira potvrde rezervacija,
- * i svaki listener ima tačno jedan tip poruke u potpisu metode.
- *
- * <p>Redove deklariše potrošač, a ne izdavač - izdavač poznaje samo exchange i routing key.
- * Neobrađene poruke završavaju u {@code notification.dlq} kroz dead-letter exchange.
- */
 @Configuration
 @EnableConfigurationProperties(NotificationProperties.class)
 public class RabbitConfig {
-
     public static final String USER_REGISTERED_QUEUE = "notification.user-registered";
     public static final String PASSWORD_RESET_QUEUE = "notification.password-reset";
     public static final String RESERVATION_CREATED_QUEUE = "notification.reservation-created";
@@ -64,7 +53,6 @@ public class RabbitConfig {
         return consumerQueue(RESERVATION_CANCELLED_QUEUE);
     }
 
-    /** Jedan red za sve što nije moglo da se obradi - pregleda se kroz RabbitMQ konzolu. */
     @Bean
     public Queue deadLetterQueue() {
         return QueueBuilder.durable(DEAD_LETTER_QUEUE).build();
@@ -99,16 +87,10 @@ public class RabbitConfig {
         return BindingBuilder.bind(deadLetterQueue()).to(bookingEventsDeadLetterExchange()).with("#");
     }
 
-    /**
-     * Konverter dobija ObjectMapper koji je konfigurisao Spring Boot. Podrazumevani
-     * konstruktor pravi sopstveni mapper bez JavaTimeModule-a, pa bi Instant polja
-     * u događajima pucala pri deserijalizaciji.
-     */
     @Bean
     public MessageConverter jsonMessageConverter(ObjectMapper objectMapper) {
         var converter = new Jackson2JsonMessageConverter(objectMapper);
 
-        // Deserijalizuju se isključivo klase iz deljenog ugovora o događajima.
         var typeMapper = new DefaultJackson2JavaTypeMapper();
         typeMapper.setTrustedPackages("java.util", "java.lang", "com.booking.common.event");
         converter.setJavaTypeMapper(typeMapper);

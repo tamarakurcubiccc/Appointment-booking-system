@@ -40,7 +40,6 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class UserAccountServiceTest {
-
     @Mock
     private UserRepository repository;
     @Mock
@@ -150,7 +149,6 @@ class UserAccountServiceTest {
     void aPasswordResetRequestForAnUnknownEmailLooksIdenticalFromOutside() {
         when(repository.findByEmailIgnoreCase("nobody@example.com")).thenReturn(Optional.empty());
 
-        // Ne baca grešku - inače bi se preko odgovora moglo nabrajati koje adrese postoje.
         service.requestPasswordReset(new PasswordResetRequest("nobody@example.com"));
 
         verify(events, never()).publish(any(), any());
@@ -202,7 +200,6 @@ class UserAccountServiceTest {
     void anAdminCannotDisableTheirOwnAccount() {
         var admin = UUID.randomUUID();
 
-        // Inače bi jedini administrator mogao da zaključa sistem bez puta nazad.
         assertThatThrownBy(() -> service.setEnabled(admin, false, admin))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).getStatus())

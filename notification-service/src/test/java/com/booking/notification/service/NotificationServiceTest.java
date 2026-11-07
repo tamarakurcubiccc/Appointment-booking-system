@@ -27,7 +27,6 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class NotificationServiceTest {
-
     @Mock
     private NotificationRepository repository;
     @Mock
@@ -45,7 +44,6 @@ class NotificationServiceTest {
 
     @BeforeEach
     void setUp() {
-        // Renderer je prava implementacija - test proverava i tekst koji korisnik dobije.
         service = new NotificationService(repository, templates, new TemplateRenderer(), store, emailSender);
 
         eventId = UUID.randomUUID();
@@ -89,7 +87,7 @@ class NotificationServiceTest {
     @Test
     void ignoresADuplicateDeliveryOfTheSameEvent() {
         when(templates.findActive("RESERVATION_CONFIRMED_CLIENT")).thenReturn(Optional.of(template()));
-        // Prazno = obaveštenje za ovaj događaj je već poslato.
+
         when(store.prepare(eq(eventId), anyString(), any(), anyString(), anyString()))
                 .thenReturn(Optional.empty());
 
@@ -106,7 +104,6 @@ class NotificationServiceTest {
                 .thenReturn(Optional.of(notificationId));
         doThrow(new MailSendException("smtp down")).when(emailSender).send(anyString(), anyString(), anyString());
 
-        // Greška se propagira - potrošač poruke je vraća RabbitMQ-u na ponovni pokušaj.
         assertThatThrownBy(() -> service.dispatch(eventId, "RESERVATION_CONFIRMED_CLIENT", recipient, parameters()))
                 .isInstanceOf(MailSendException.class);
 

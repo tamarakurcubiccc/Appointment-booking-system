@@ -9,7 +9,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface LoyaltyRewardRepository extends JpaRepository<LoyaltyReward, UUID> {
-
     List<LoyaltyReward> findByClientIdOrderByIssuedAtDesc(UUID clientId);
 
     List<LoyaltyReward> findByClientIdAndProviderIdAndStatusOrderByExpiresAtAsc(

@@ -15,7 +15,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
-
     @Bean
     public GatewayAuthenticationFilter gatewayAuthenticationFilter() {
         return new GatewayAuthenticationFilter();
@@ -31,7 +30,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
-                        // Obaveštenja su lična - nema javnih endpointa.
+
                         .anyRequest().authenticated())
                 .addFilterBefore(gatewayFilter, UsernamePasswordAuthenticationFilter.class);
 

@@ -15,7 +15,6 @@ import java.util.UUID;
 
 @Service
 public class ServiceCatalogService {
-
     private static final Logger log = LoggerFactory.getLogger(ServiceCatalogService.class);
 
     private final ServiceOfferingRepository repository;
@@ -60,7 +59,6 @@ public class ServiceCatalogService {
         return ServiceOfferingResponse.from(offering);
     }
 
-    /** Meko brisanje - istorijske rezervacije moraju i dalje da pokazuju na validnu uslugu. */
     @Transactional
     public void deactivate(UUID id, UUID callerId, boolean admin) {
         var offering = getOrThrow(id);

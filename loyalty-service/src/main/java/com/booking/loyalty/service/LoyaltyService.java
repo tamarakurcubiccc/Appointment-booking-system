@@ -24,7 +24,6 @@ import java.util.UUID;
 
 @Service
 public class LoyaltyService {
-
     private static final Logger log = LoggerFactory.getLogger(LoyaltyService.class);
 
     private final LoyaltyAccountRepository accounts;
@@ -42,13 +41,6 @@ public class LoyaltyService {
         this.processedEvents = processedEvents;
     }
 
-    /**
-     * Zakazan termin uvećava brojač i, ako je prag dostignut, dodeljuje nagradu.
-     *
-     * <p>Broje se zakazani termini, a ne završeni: sistem nema tok koji termin označava kao
-     * završen, pa bi se nagrada nikada ne bi dodelila. Otkazivanje je ispravka tog broja
-     * (vidi {@link #registerCancellation}).
-     */
     @Transactional
     public void registerAppointment(UUID eventId, UUID clientId, UUID providerId) {
         if (alreadyProcessed(eventId, "reservation.created")) {
@@ -65,10 +57,6 @@ public class LoyaltyService {
                 clientId, account.getAppointmentsTowardsReward(), providerId);
     }
 
-    /**
-     * Otkazan termin se oduzima od brojača, a nagrada iskorišćena u toj rezervaciji se
-     * vraća klijentu - nije je iskoristio.
-     */
     @Transactional
     public void registerCancellation(UUID eventId, UUID clientId, UUID providerId, UUID reservationId) {
         if (alreadyProcessed(eventId, "reservation.cancelled")) {
@@ -87,7 +75,6 @@ public class LoyaltyService {
         log.info("Cancellation of reservation {} registered for client {}", reservationId, clientId);
     }
 
-    /** Poziva ga reservation-service pri zakazivanju termina koji koristi nagradu. */
     @Transactional
     public LoyaltyRewardResponse redeem(RedeemRewardRequest request) {
         var reward = rewards.findById(request.rewardId())
@@ -103,7 +90,6 @@ public class LoyaltyService {
             throw ApiException.conflict("Nagrada je već iskorišćena");
         }
         if (reward.hasExpired()) {
-            // Status se ažurira pri prvom nailasku na isteklu nagradu.
             reward.markExpired();
             throw ApiException.badRequest("Nagrada je istekla");
         }
@@ -176,10 +162,6 @@ public class LoyaltyService {
                 .orElse(null);
     }
 
-    /**
-     * Upis id-ja događaja i promena brojača dele istu transakciju, pa ponovna dostava
-     * iste poruke ne može da uveća brojač dva puta.
-     */
     private boolean alreadyProcessed(UUID eventId, String eventType) {
         if (processedEvents.existsById(eventId)) {
             log.debug("Event {} already processed - ignoring the redelivery", eventId);

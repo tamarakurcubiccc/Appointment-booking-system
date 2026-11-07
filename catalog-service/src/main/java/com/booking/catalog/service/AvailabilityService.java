@@ -25,7 +25,6 @@ import java.util.UUID;
 
 @Service
 public class AvailabilityService {
-
     private static final Logger log = LoggerFactory.getLogger(AvailabilityService.class);
 
     private final AvailabilitySlotRepository slotRepository;
@@ -50,10 +49,6 @@ public class AvailabilityService {
         return SlotResponse.from(slot);
     }
 
-    /**
-     * Masovno generiše termine za opseg datuma. Postojeći termini se preskaču, pa je
-     * operacija bezbedna za ponovno pokretanje (idempotentna po vremenu početka).
-     */
     @Transactional
     public List<SlotResponse> generateSlots(UUID serviceId, UUID callerId, boolean admin, GenerateSlotsRequest request) {
         ServiceOffering offering = catalogService.getOrThrow(serviceId);
@@ -71,7 +66,7 @@ public class AvailabilityService {
 
         Instant rangeStart = request.fromDate().atStartOfDay(zone).toInstant();
         Instant rangeEnd = request.toDate().plusDays(1).atStartOfDay(zone).toInstant();
-        // Jedan query umesto jednog po svakom kandidatu za termin.
+
         Set<Instant> existing = new HashSet<>(slotRepository.findStartTimes(serviceId, rangeStart, rangeEnd));
 
         List<AvailabilitySlot> created = new ArrayList<>();
@@ -82,12 +77,7 @@ public class AvailabilityService {
             if (request.skipWeekend() && isWeekend(date)) {
                 continue;
             }
-            // Granice radnog dana se jednom razreše u prave Instant vrednosti, pa se zatim
-            // korača napred u Instant prostoru. Iteriranje po zidnom času (LocalDateTime) i
-            // konverzija svakog kursora bi tiho izgubila termine pri DST pomeranju unapred
-            // (dva lokalna vremena mapiraju se na jedan Instant) i ostavila prazninu pri
-            // pomeranju unazad; korak fiksnog stvarnog trajanja čuva svaki termin tačno
-            // `duration` minuta i daje ispravan broj termina na danu od 23h/25h.
+
             Instant dayStart = LocalDateTime.of(date, request.workDayStart()).atZone(zone).toInstant();
             Instant dayEnd = LocalDateTime.of(date, request.workDayEnd()).atZone(zone).toInstant();
 
@@ -127,9 +117,7 @@ public class AvailabilityService {
         if (!admin && !slot.getProviderId().equals(callerId)) {
             throw ApiException.forbidden("Niste vlasnik ovog termina");
         }
-        // Ovaj endpoint samo blokira/deblokira termin. BOOKED je u vlasništvu toka rezervacije
-        // (reservation-service -> book/release); dozvoliti pružaocu usluge da ga ovde postavi
-        // stvorilo bi fantomsku rezervaciju koja nikada ne može da se poništi kroz javni API.
+
         if (status != SlotStatus.AVAILABLE && status != SlotStatus.BLOCKED) {
             throw ApiException.badRequest("Termin može da se postavi samo na AVAILABLE ili BLOCKED");
         }
@@ -152,12 +140,6 @@ public class AvailabilityService {
         slotRepository.delete(slot);
     }
 
-    // ---------- Interni API, poziva ga reservation-service ----------
-
-    /**
-     * Atomično označava termin kao BOOKED. Red se zaključava sa SELECT ... FOR UPDATE,
-     * pa se paralelni pokušaji rezervacije serijalizuju, a gubitnik dobija 409.
-     */
     @Transactional
     public SlotResponse book(UUID slotId) {
         var slot = slotRepository.findByIdForUpdate(slotId)
@@ -177,7 +159,6 @@ public class AvailabilityService {
         return SlotResponse.from(slot);
     }
 
-    /** Vraća termin nazad na AVAILABLE (otkazivanje / kompenzaciona akcija). */
     @Transactional
     public SlotResponse release(UUID slotId) {
         var slot = slotRepository.findByIdForUpdate(slotId)

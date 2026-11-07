@@ -19,7 +19,6 @@ public record RegisterRequest(
         @Size(max = 30)
         String phone,
 
-        /** Opciono. Podrazumevano CLIENT. ADMIN ne može samostalno da se dodeli. */
         Role role
 ) {
 }

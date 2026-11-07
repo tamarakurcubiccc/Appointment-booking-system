@@ -18,7 +18,6 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
-
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(ApiException.class)
@@ -39,12 +38,6 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(body);
     }
 
-    /**
-     * Spring Security-jeva sigurnost na nivou metoda (@PreAuthorize) baca AuthorizationDeniedException,
-     * potklasu AccessDeniedException, iznutra iz MVC dispečera - pa stiže do ovog
-     * advice-a umesto do security filter lanca. Mapiramo je na 403 umesto da
-     * sveobuhvatni handler ispod pretvori svaku odbijenu autorizaciju u obmanjujući 500.
-     */
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiError> handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -52,12 +45,6 @@ public class GlobalExceptionHandler {
                         "Pristup nije dozvoljen", request.getRequestURI()));
     }
 
-    /**
-     * Kršenje jedinstvenog ograničenja (npr. dve istovremene registracije za isti email,
-     * ili dva zakazivanja koja se otimaju o isto vreme početka termina) stiže do baze uprkos
-     * check-then-act zaštiti na nivou aplikacije. To je sukob, a ne greška servera, pa se
-     * prikazuje kao 409 umesto sveobuhvatnog 500 ispod.
-     */
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiError> handleDataIntegrity(DataIntegrityViolationException ex, HttpServletRequest request) {
         log.warn("Data integrity violation on {}: {}", request.getRequestURI(), ex.getMostSpecificCause().getMessage());

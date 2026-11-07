@@ -17,7 +17,6 @@ import java.util.UUID;
 @Entity
 @Table(name = "users", indexes = @Index(name = "idx_users_email", columnList = "email", unique = true))
 public class User {
-
     @Id
     @GeneratedValue
     @JdbcTypeCode(SqlTypes.CHAR)
@@ -39,15 +38,9 @@ public class User {
     @Column(nullable = false, length = 20)
     private Role role = Role.CLIENT;
 
-    /** Administratorski prekidač. Nezavisan od aktivacije - deaktiviran nalog ostaje aktiviran. */
     @Column(nullable = false)
     private boolean enabled = true;
 
-    /**
-     * Trenutak potvrde e-mail adrese; null znači da nalog još nije aktiviran.
-     * Namerno je odvojeno od {@code enabled}: "nije još potvrdio e-mail" i
-     * "administrator mu je ukinuo pristup" su različita stanja sa različitim porukama.
-     */
     @Column(name = "activated_at")
     private Instant activatedAt;
 
@@ -65,7 +58,6 @@ public class User {
         this.role = role;
     }
 
-    /** Poziva se kada korisnik otvori aktivacioni link. Ponovna aktivacija ne menja datum. */
     public void activate() {
         if (this.activatedAt == null) {
             this.activatedAt = Instant.now();

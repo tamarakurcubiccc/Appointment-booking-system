@@ -3,7 +3,6 @@ package com.booking.notification.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
-/** Šifra šablona se ne menja - na nju se poziva kod koji šalje obaveštenja. */
 public record NotificationTemplateUpdateRequest(
 
         @Size(max = 200)

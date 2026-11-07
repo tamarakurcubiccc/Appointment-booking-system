@@ -23,17 +23,8 @@ import reactor.core.publisher.Mono;
 import javax.crypto.SecretKey;
 import java.util.List;
 
-/**
- * Jedino mesto u sistemu gde se JWT parsira.
- *
- * Odgovornosti:
- *  1. uklanja sva X-User-* zaglavlja koja je poslao klijent (u suprotnom bi svako mogao da se lažno predstavi kao korisnik),
- *  2. propušta javne putanje,
- *  3. validira Bearer token i prosleđuje identitet nizvodnom servisu kao pouzdana zaglavlja.
- */
 @Component
 public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
-
     private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
     private static final AntPathMatcher MATCHER = new AntPathMatcher();
     private static final List<String> SPOOFABLE_HEADERS = List.of("X-User-Id", "X-User-Email", "X-User-Role");
@@ -51,19 +42,12 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
         ServerHttpRequest request = exchange.getRequest();
         String path = request.getURI().getPath();
 
-        // 1. Nikada ne veruj zaglavljima identiteta koja stižu spolja.
         ServerHttpRequest sanitized = request.mutate()
                 .headers(headers -> SPOOFABLE_HEADERS.forEach(headers::remove))
                 .build();
 
         String token = extractToken(sanitized);
 
-        // 2. Javni endpoint-i: autentifikacija je opciona. Validan token se i dalje
-        //    uvažava kako bi se identitet prosledio nizvodnom servisu - putanje kataloga
-        //    su javne za GET/pregledanje, ali njihovi endpoint-i za upis (POST/PUT/DELETE/PATCH)
-        //    oslanjaju se na @PreAuthorize i zato zahtevaju X-User-* zaglavlja. Nedostajući
-        //    ili neispravan token na javnoj putanji jednostavno znači da se zahtev
-        //    nastavlja anonimno.
         if (isPublic(path)) {
             if (token == null) {
                 return chain.filter(exchange.mutate().request(sanitized).build());
@@ -77,7 +61,6 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             }
         }
 
-        // 3. Zaštićeni endpoint-i: validan Bearer token je obavezan.
         if (token == null) {
             return reject(exchange, HttpStatus.UNAUTHORIZED, "Nedostaje Bearer token");
         }
@@ -100,7 +83,6 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
                 .getPayload();
     }
 
-    /** Prosleđuje verifikovani identitet nizvodnom servisu kao pouzdana zaglavlja. */
     private static ServerHttpRequest withIdentity(ServerHttpRequest request, Claims claims) {
         return request.mutate()
                 .header("X-User-Id", claims.getSubject())
@@ -123,8 +105,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
         exchange.getResponse().getHeaders().add("Content-Type", "application/json;charset=UTF-8");
         String body = "{\"status\":%d,\"error\":\"%s\",\"message\":\"%s\"}"
                 .formatted(status.value(), status.getReasonPhrase(), message);
-        // Eksplicitni UTF-8: getBytes() bez charset-a koristi podrazumevani platformski,
-        // koji kvari dijakritike u srpskim porukama.
+
         var buffer = exchange.getResponse().bufferFactory()
                 .wrap(body.getBytes(StandardCharsets.UTF_8));
         return exchange.getResponse().writeWith(Mono.just(buffer));
@@ -132,7 +113,6 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
     @Override
     public int getOrder() {
-        // Izvršava se pre routing filtera.
         return -100;
     }
 }

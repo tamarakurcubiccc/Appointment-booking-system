@@ -7,16 +7,8 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Component;
 
-/**
- * Predaje tekst obaveštenja SMTP serveru. U lokalnom okruženju to je Mailpit, pa se
- * poruke vide u njegovom web pregledniku i nijedan e-mail ne ide na stvarnu adresu.
- *
- * <p>Kada je notifications.mail-enabled false, slanje se preskače i samo se loguje -
- * obaveštenje je i dalje zapisano i dostupno kroz /api/notifications.
- */
 @Component
 public class EmailSender {
-
     private static final Logger log = LoggerFactory.getLogger(EmailSender.class);
 
     private final JavaMailSender mailSender;

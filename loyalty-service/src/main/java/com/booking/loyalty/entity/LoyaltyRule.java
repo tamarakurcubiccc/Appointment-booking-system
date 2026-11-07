@@ -12,22 +12,10 @@ import org.hibernate.type.SqlTypes;
 import java.time.Instant;
 import java.util.UUID;
 
-/**
- * Pravilo lojalnosti koje definiše pružalac usluge: "svaki N-ti termin je nagrađen".
- *
- * <p>Pravilo važi za sve usluge tog pružaoca, a ne za pojedinačnu uslugu. Brojač bi
- * inače morao da se vodi po usluzi, a događaj o otkazivanju ne nosi id usluge - ne bi
- * se znalo koji brojač da se umanji.
- *
- * <p>Pružalac u svakom trenutku može imati najviše jedno aktivno pravilo (proverava se u
- * servisu): uz jedan brojač po klijentu, više aktivnih pravila sa različitim pragovima
- * ne bi imalo jednoznačno značenje.
- */
 @Entity
 @Table(name = "loyalty_rules",
         indexes = @Index(name = "idx_rule_provider", columnList = "provider_id"))
 public class LoyaltyRule {
-
     @Id
     @GeneratedValue
     @JdbcTypeCode(SqlTypes.CHAR)
@@ -37,14 +25,12 @@ public class LoyaltyRule {
     @JdbcTypeCode(SqlTypes.CHAR)
     private UUID providerId;
 
-    /** Broj termina koji klijent mora da zakaže da bi dobio nagradu. */
     @Column(name = "required_appointments", nullable = false)
     private int requiredAppointments;
 
     @Column(name = "reward_description", nullable = false, length = 200)
     private String rewardDescription;
 
-    /** Koliko dana nagrada važi od momenta dodele. */
     @Column(name = "reward_validity_days", nullable = false)
     private int rewardValidityDays;
 

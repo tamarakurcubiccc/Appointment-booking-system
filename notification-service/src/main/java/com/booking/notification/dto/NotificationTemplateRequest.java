@@ -6,7 +6,6 @@ import jakarta.validation.constraints.Size;
 
 public record NotificationTemplateRequest(
 
-        /* Velika slova, cifre i donja crta - šifra se pojavljuje u kodu i u logovima. */
         @NotBlank @Size(max = 60) @Pattern(regexp = "[A-Z0-9_]+", message = "Dozvoljena su samo velika slova, cifre i _")
         String code,
 

@@ -7,12 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 
-/**
- * Prevodi nizvodne HTTP greške u ApiException, tako da se 409 iz catalog-service
- * prikaže klijentu kao 409 umesto neprozirnog 500.
- */
 public class FeignErrorDecoder implements ErrorDecoder {
-
     private static final Logger log = LoggerFactory.getLogger(FeignErrorDecoder.class);
     private final ErrorDecoder defaultDecoder = new Default();
 
@@ -35,10 +30,6 @@ public class FeignErrorDecoder implements ErrorDecoder {
         };
     }
 
-    /**
-     * Sukob iz catalog-service znači zauzet termin; sukob iz loyalty-service znači već
-     * iskorišćenu nagradu. Jedna poruka za oba slučaja bila bi netačna u jednom od njih.
-     */
     private static String conflictMessage(String methodKey) {
         return methodKey.startsWith("CatalogClient")
                 ? "Termin više nije slobodan"

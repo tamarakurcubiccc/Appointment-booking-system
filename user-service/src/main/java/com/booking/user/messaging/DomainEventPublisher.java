@@ -10,7 +10,6 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 @Component
 public class DomainEventPublisher {
-
     private static final Logger log = LoggerFactory.getLogger(DomainEventPublisher.class);
 
     private final RabbitTemplate rabbitTemplate;
@@ -19,12 +18,6 @@ public class DomainEventPublisher {
         this.rabbitTemplate = rabbitTemplate;
     }
 
-    /**
-     * Objavljuje događaj tek NAKON što se tekuća transakcija uspešno komituje.
-     *
-     * <p>Objavljivanje pre commit-a znači da korisnik dobije e-mail "nalog je kreiran" i za
-     * registraciju koja se na kraju vratila nazad. Zato se poruka šalje iz afterCommit-a.
-     */
     public void publish(String routingKey, Object event) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
@@ -38,12 +31,6 @@ public class DomainEventPublisher {
         }
     }
 
-    /**
-     * Greška pri objavljivanju se loguje, a ne prosleđuje dalje: registracija koja je već
-     * sačuvana ne sme da padne zato što broker nije dostupan. Posledica je dostava "najviše
-     * jednom" - izgubljeno obaveštenje se ne nadoknađuje automatski. Garancija "najmanje
-     * jednom" bi zahtevala outbox tabelu u istoj transakciji i zadatak koji je prazni.
-     */
     private void send(String routingKey, Object event) {
         try {
             rabbitTemplate.convertAndSend(BookingEvents.EXCHANGE, routingKey, event);

@@ -6,7 +6,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 public final class CurrentUser {
-
     private CurrentUser() {
     }
 

@@ -15,14 +15,6 @@ import org.hibernate.type.SqlTypes;
 import java.time.Instant;
 import java.util.UUID;
 
-/**
- * Jedno poslato (ili neuspelo) obaveštenje. Čuva se renderovan tekst, a ne referenca na
- * šablon: kasnija izmena šablona ne sme da promeni ono što je korisnik stvarno dobio.
- *
- * <p>Jedinstveno ograničenje nad (event_id, template_code, recipient_email) čini potrošača
- * idempotentnim - ponovna dostava iste poruke iz RabbitMQ-a, nakon prolazne greške,
- * ne pravi duplirano obaveštenje.
- */
 @Entity
 @Table(
         name = "notifications",
@@ -35,13 +27,11 @@ import java.util.UUID;
         }
 )
 public class Notification {
-
     @Id
     @GeneratedValue
     @JdbcTypeCode(SqlTypes.CHAR)
     private UUID id;
 
-    /** Id domenskog događaja koji je izazvao obaveštenje. */
     @Column(name = "event_id", nullable = false)
     @JdbcTypeCode(SqlTypes.CHAR)
     private UUID eventId;
@@ -49,7 +39,6 @@ public class Notification {
     @Column(name = "template_code", nullable = false, length = 60)
     private String templateCode;
 
-    /** Id primaoca iz user-service; null ako primalac nije korisnik sistema. */
     @Column(name = "recipient_id")
     @JdbcTypeCode(SqlTypes.CHAR)
     private UUID recipientId;

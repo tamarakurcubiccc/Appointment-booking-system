@@ -8,7 +8,6 @@ import java.util.UUID;
 
 @FeignClient(name = "catalog-service", contextId = "catalogPublicClient", path = "/api/services")
 public interface CatalogPublicClient {
-
     @GetMapping("/{serviceId}")
     ServiceOfferingDto getService(@PathVariable UUID serviceId);
 }

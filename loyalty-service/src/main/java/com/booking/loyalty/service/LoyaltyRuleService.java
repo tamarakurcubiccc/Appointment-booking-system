@@ -15,7 +15,6 @@ import java.util.UUID;
 
 @Service
 public class LoyaltyRuleService {
-
     private static final Logger log = LoggerFactory.getLogger(LoyaltyRuleService.class);
 
     private final LoyaltyRuleRepository repository;
@@ -24,11 +23,6 @@ public class LoyaltyRuleService {
         this.repository = repository;
     }
 
-    /**
-     * Pružalac može imati najviše jedno aktivno pravilo. Da bi promenio prag, prvo
-     * deaktivira postojeće - tako se nikada ne postavlja pitanje koje od dva pravila
-     * se primenjuje na jedan brojač.
-     */
     @Transactional
     public LoyaltyRuleResponse create(UUID providerId, LoyaltyRuleRequest request) {
         if (repository.findByProviderIdAndActiveTrue(providerId).isPresent()) {
@@ -58,10 +52,6 @@ public class LoyaltyRuleService {
         return LoyaltyRuleResponse.from(rule);
     }
 
-    /**
-     * Deaktiviranje, a ne brisanje: već dodeljene nagrade pokazuju na pravilo po kojem su
-     * nastale, pa red mora da ostane.
-     */
     @Transactional
     public LoyaltyRuleResponse deactivate(UUID id, UUID callerId, boolean admin) {
         var rule = getOrThrow(id);

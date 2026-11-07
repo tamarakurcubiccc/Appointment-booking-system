@@ -4,16 +4,8 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
 
-/**
- * Upisuje podrazumevane šablone pri pokretanju, ako ih nema. Bez ovoga svež sistem ne bi
- * poslao ni jedno obaveštenje dok administrator ručno ne unese šablone.
- *
- * <p>Postojeći šablon se ne dira - administratorova izmena teksta ostaje na snazi i posle
- * restarta, pa je pokretanje idempotentno.
- */
 @Component
 public class DefaultTemplateInitializer implements ApplicationRunner {
-
     private final NotificationTemplateService templates;
 
     public DefaultTemplateInitializer(NotificationTemplateService templates) {

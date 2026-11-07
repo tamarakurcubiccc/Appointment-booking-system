@@ -16,7 +16,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
-
     @Bean
     public GatewayAuthenticationFilter gatewayAuthenticationFilter() {
         return new GatewayAuthenticationFilter();
@@ -33,8 +32,7 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/api/internal/**").permitAll()
-                        // Ponude lojalnosti su javne, isto kao i katalog usluga - klijent
-                        // treba da vidi šta nudi pružalac pre nego što se registruje.
+
                         .requestMatchers(HttpMethod.GET, "/api/loyalty/rules/**").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(gatewayFilter, UsernamePasswordAuthenticationFilter.class);

@@ -8,7 +8,6 @@ import java.util.UUID;
 
 @FeignClient(name = "user-service", path = "/api/internal/users")
 public interface UserClient {
-
     @GetMapping("/{userId}")
     UserDto getUser(@PathVariable UUID userId);
 }

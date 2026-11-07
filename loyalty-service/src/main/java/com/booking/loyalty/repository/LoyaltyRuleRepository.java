@@ -8,7 +8,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface LoyaltyRuleRepository extends JpaRepository<LoyaltyRule, UUID> {
-
     Optional<LoyaltyRule> findByProviderIdAndActiveTrue(UUID providerId);
 
     List<LoyaltyRule> findByProviderIdOrderByCreatedAtDesc(UUID providerId);

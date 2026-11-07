@@ -11,12 +11,8 @@ import reactor.core.publisher.Mono;
 
 import java.util.UUID;
 
-/**
- * Dodaje correlation id (identifikator korelacije) i beleži svaki zahtev koji prolazi kroz gateway.
- */
 @Component
 public class RequestLoggingFilter implements GlobalFilter, Ordered {
-
     private static final Logger log = LoggerFactory.getLogger(RequestLoggingFilter.class);
     private static final String CORRELATION_ID = "X-Correlation-Id";
 

@@ -23,7 +23,6 @@ import java.util.UUID;
 @RequestMapping("/api/users")
 @Tag(name = "Korisnici")
 public class UserController {
-
     private final UserAccountService service;
 
     public UserController(UserAccountService service) {

@@ -19,12 +19,6 @@ import org.hibernate.type.SqlTypes;
 import java.time.Instant;
 import java.util.UUID;
 
-/**
- * Konkretan termin za uslugu koji može da se rezerviše.
- * Jedinstveno ograničenje (service_id, start_time) sprečava duplirane termine,
- * dok @Version kolona zajedno sa pesimističkim zaključavanjem pri rezervaciji
- * sprečava da dva klijenta zauzmu isti termin.
- */
 @Entity
 @Table(
         name = "availability_slots",
@@ -35,7 +29,6 @@ import java.util.UUID;
         }
 )
 public class AvailabilitySlot {
-
     @Id
     @GeneratedValue
     @JdbcTypeCode(SqlTypes.CHAR)

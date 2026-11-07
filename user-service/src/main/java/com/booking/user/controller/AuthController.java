@@ -22,7 +22,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/auth")
 @Tag(name = "Autentikacija")
 public class AuthController {
-
     private final UserAccountService service;
 
     public AuthController(UserAccountService service) {
@@ -35,10 +34,6 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.register(request));
     }
 
-    /**
-     * Link iz e-maila vodi na stranicu koja poziva ovaj endpoint. Aktivacija menja stanje
-     * naloga, pa je POST, a ne GET - token iz linka se prosleđuje kao parametar.
-     */
     @PostMapping("/activate")
     @Operation(summary = "Aktiviraj nalog tokenom iz e-maila i vrati pristupni token")
     public AuthResponse activate(@RequestParam String token) {
@@ -51,7 +46,6 @@ public class AuthController {
         return service.login(request);
     }
 
-    /** 202 bez tela i kada e-mail adresa ne postoji - vidi UserAccountService. */
     @PostMapping("/password-reset-request")
     @Operation(summary = "Zatraži link za promenu lozinke")
     public ResponseEntity<Void> requestPasswordReset(@Valid @RequestBody PasswordResetRequest request) {

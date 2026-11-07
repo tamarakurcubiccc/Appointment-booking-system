@@ -16,7 +16,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
-
     @Bean
     public GatewayAuthenticationFilter gatewayAuthenticationFilter() {
         return new GatewayAuthenticationFilter();
@@ -33,7 +32,7 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/api/internal/**").permitAll()
-                        // Pregled kataloga je javan; sve ostalo zahteva token.
+
                         .requestMatchers(HttpMethod.GET, "/api/services/**", "/api/slots/**").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(gatewayFilter, UsernamePasswordAuthenticationFilter.class);

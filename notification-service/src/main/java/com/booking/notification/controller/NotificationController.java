@@ -20,7 +20,6 @@ import java.util.UUID;
 @RequestMapping("/api/notifications")
 @Tag(name = "Obaveštenja")
 public class NotificationController {
-
     private final NotificationService service;
 
     public NotificationController(NotificationService service) {

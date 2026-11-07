@@ -12,15 +12,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
 
-/**
- * Poziva ga reservation-service preko REST-a (Eureka + OpenFeign).
- * Ne rutira se kroz API Gateway - dostupan je samo unutar mreže klastera.
- */
 @RestController
 @RequestMapping("/api/internal/slots")
 @Tag(name = "Interno")
 public class InternalSlotController {
-
     private final AvailabilityService service;
 
     public InternalSlotController(AvailabilityService service) {

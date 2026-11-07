@@ -16,7 +16,6 @@ import java.util.UUID;
 
 @Service
 public class NotificationService {
-
     private static final Logger log = LoggerFactory.getLogger(NotificationService.class);
 
     private final NotificationRepository repository;
@@ -37,16 +36,6 @@ public class NotificationService {
         this.emailSender = emailSender;
     }
 
-    /**
-     * Renderuje šablon, zapisuje obaveštenje i predaje ga SMTP serveru.
-     *
-     * <p>Metoda nije @Transactional: slanje e-maila je spor poziv ka spoljnom sistemu i ne sme
-     * da drži otvorenu transakciju, a zapis o neuspehu mora da preživi grešku pri slanju
-     * (vidi {@link NotificationStore}).
-     *
-     * <p>Greška pri slanju se propagira pozivaocu - listener je tada vraća RabbitMQ-u,
-     * koji poruku ponavlja i na kraju šalje na dead-letter red.
-     */
     public void dispatch(UUID eventId, String templateCode, Recipient recipient, Map<String, String> parameters) {
         var template = templates.findActive(templateCode);
         if (template.isEmpty()) {

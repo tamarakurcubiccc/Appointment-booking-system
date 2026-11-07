@@ -14,12 +14,6 @@ import org.hibernate.type.SqlTypes;
 import java.time.Instant;
 import java.util.UUID;
 
-/**
- * Rezervacija. Id-jevi klijenta, pružaoca usluge, usluge i termina su strani ključevi
- * ka *drugim servisima* - namerno nisu JPA relacije: svaki servis poseduje sopstvenu bazu.
- * Dvostruka rezervacija se sprečava u catalog-service (SELECT ... FOR UPDATE nad terminom);
- * provera sa ove strane je druga, jeftina linija odbrane.
- */
 @Entity
 @Table(
         name = "reservations",
@@ -31,7 +25,6 @@ import java.util.UUID;
         }
 )
 public class Reservation {
-
     @Id
     @GeneratedValue
     @JdbcTypeCode(SqlTypes.CHAR)
@@ -69,11 +62,6 @@ public class Reservation {
     @Column(length = 500)
     private String note;
 
-    /**
-     * Nagrada lojalnosti iskorišćena za ovaj termin; null kada se plaća redovno.
-     * Postavlja se posebnom metodom, a ne kroz konstruktor: nagrada se potvrđuje u
-     * loyalty-service posle upisa rezervacije, kada se zna id rezervacije.
-     */
     @Column(name = "reward_id")
     @JdbcTypeCode(SqlTypes.CHAR)
     private UUID rewardId;

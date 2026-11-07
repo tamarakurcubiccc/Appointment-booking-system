@@ -9,7 +9,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface NotificationRepository extends JpaRepository<Notification, UUID> {
-
     Optional<Notification> findByEventIdAndTemplateCodeAndRecipientEmail(
             UUID eventId, String templateCode, String recipientEmail);
 

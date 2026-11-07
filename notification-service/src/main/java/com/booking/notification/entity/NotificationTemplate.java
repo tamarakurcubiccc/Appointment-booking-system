@@ -12,22 +12,15 @@ import org.hibernate.type.SqlTypes;
 import java.time.Instant;
 import java.util.UUID;
 
-/**
- * Šablon obaveštenja. Tekst sadrži parametre u obliku dvostrukih vitičastih zagrada
- * koji se popunjavaju u trenutku slanja, pa administrator može da menja sadržaj
- * obaveštenja bez izmene koda.
- */
 @Entity
 @Table(name = "notification_templates",
         indexes = @Index(name = "idx_template_code", columnList = "code", unique = true))
 public class NotificationTemplate {
-
     @Id
     @GeneratedValue
     @JdbcTypeCode(SqlTypes.CHAR)
     private UUID id;
 
-    /** Stabilna šifra po kojoj servis pronalazi šablon, npr. RESERVATION_CONFIRMED_CLIENT. */
     @Column(nullable = false, unique = true, length = 60)
     private String code;
 
@@ -40,10 +33,6 @@ public class NotificationTemplate {
     @Column(nullable = false, length = 4000)
     private String body;
 
-    /**
-     * Imena parametara pronađena u tekstu, razdvojena zapetom. Izvedeno polje - popunjava
-     * ga servis pri svakom čuvanju, da administrator vidi koje parametre šablon očekuje.
-     */
     @Column(length = 500)
     private String parameters;
 

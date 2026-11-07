@@ -14,7 +14,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface AvailabilitySlotRepository extends JpaRepository<AvailabilitySlot, UUID> {
-
     @Query("""
             select s from AvailabilitySlot s
             where s.service.id = :serviceId
@@ -41,15 +40,11 @@ public interface AvailabilitySlotRepository extends JpaRepository<AvailabilitySl
 
     boolean existsByServiceIdAndStartTime(UUID serviceId, Instant startTime);
 
-    /** Koristi ga masovni generator da jednim query-jem preskoči već postojeće termine. */
     @Query("select s.startTime from AvailabilitySlot s where s.service.id = :serviceId and s.startTime between :from and :to")
     List<Instant> findStartTimes(@Param("serviceId") UUID serviceId,
                                  @Param("from") Instant from,
                                  @Param("to") Instant to);
 
-    /**
-     * SELECT ... FOR UPDATE - serijalizuje istovremene pokušaje rezervacije istog termina.
-     */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select s from AvailabilitySlot s where s.id = :id")
     Optional<AvailabilitySlot> findByIdForUpdate(@Param("id") UUID id);

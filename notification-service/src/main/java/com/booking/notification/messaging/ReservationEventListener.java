@@ -15,17 +15,8 @@ import org.springframework.stereotype.Component;
 
 import java.util.Map;
 
-/**
- * Obaveštenja o rezervacijama. Obaveštavaju se obe strane - i klijent i pružalac usluge,
- * svaki svojim šablonom.
- *
- * <p>Kontakt podaci se dohvataju iz user-service u trenutku obrade poruke. Neuspeh tog
- * poziva je prolazna greška, pa RabbitMQ poruku ponavlja i nijedno obaveštenje se ne gubi
- * zato što je user-service bio nedostupan.
- */
 @Component
 public class ReservationEventListener {
-
     private static final Logger log = LoggerFactory.getLogger(ReservationEventListener.class);
 
     private final NotificationService notifications;
@@ -73,7 +64,6 @@ public class ReservationEventListener {
         var provider = Recipient.from(userClient.getUser(event.providerId()));
         String time = timeFormatter.format(event.startTime());
 
-        // Ko je otkazao piše u obaveštenju - druga strana treba da zna da nije njena greška.
         String cancelledBy = event.clientId().equals(event.cancelledBy())
                 ? ListenerSupport.text(client.fullName())
                 : ListenerSupport.text(provider.fullName());

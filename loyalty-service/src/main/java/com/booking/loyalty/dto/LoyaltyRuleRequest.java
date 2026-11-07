@@ -7,7 +7,6 @@ import jakarta.validation.constraints.Size;
 
 public record LoyaltyRuleRequest(
 
-        /* Najmanje 2 - pravilo "svaki 1. termin je nagrađen" nije program lojalnosti. */
         @Min(2) @Max(100)
         int requiredAppointments,
 

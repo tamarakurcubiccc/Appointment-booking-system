@@ -14,13 +14,6 @@ import org.hibernate.type.SqlTypes;
 import java.time.Instant;
 import java.util.UUID;
 
-/**
- * Jednokratni token za aktivaciju naloga ili promenu lozinke.
- *
- * <p>Zasebna tabela, a ne kolone na korisniku: token ima rok trajanja i smisao mu je da
- * se potroši, pa istorija ostaje vidljiva, a jedan korisnik može imati više zahteva
- * za promenu lozinke bez prepisivanja prethodnog.
- */
 @Entity
 @Table(
         name = "account_tokens",
@@ -30,7 +23,6 @@ import java.util.UUID;
         }
 )
 public class AccountToken {
-
     @Id
     @GeneratedValue
     @JdbcTypeCode(SqlTypes.CHAR)
@@ -66,7 +58,6 @@ public class AccountToken {
         this.expiresAt = expiresAt;
     }
 
-    /** Token vredi samo ako nije već potrošen i nije istekao. */
     public boolean isUsable() {
         return usedAt == null && expiresAt.isAfter(Instant.now());
     }

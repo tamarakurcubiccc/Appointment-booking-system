@@ -13,19 +13,14 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
-/**
- * Usluga koju pružalac usluge nudi za rezervaciju (npr. "Šišanje - 30 min").
- */
 @Entity
 @Table(name = "service_offerings", indexes = @Index(name = "idx_offering_provider", columnList = "provider_id"))
 public class ServiceOffering {
-
     @Id
     @GeneratedValue
     @JdbcTypeCode(SqlTypes.CHAR)
     private UUID id;
 
-    /** Id korisnika (uloga PROVIDER) koji je vlasnik ove usluge. U vlasništvu user-service. */
     @Column(name = "provider_id", nullable = false)
     @JdbcTypeCode(SqlTypes.CHAR)
     private UUID providerId;

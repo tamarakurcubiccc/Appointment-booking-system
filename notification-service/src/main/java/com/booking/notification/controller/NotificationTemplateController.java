@@ -23,16 +23,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/**
- * Administracija šablona. Tekst obaveštenja je podatak, ne kod - menja se kroz API,
- * bez novog deploy-a servisa.
- */
 @RestController
 @RequestMapping("/api/notification-templates")
 @PreAuthorize("hasRole('ADMIN')")
 @Tag(name = "Šabloni obaveštenja")
 public class NotificationTemplateController {
-
     private final NotificationTemplateService service;
 
     public NotificationTemplateController(NotificationTemplateService service) {

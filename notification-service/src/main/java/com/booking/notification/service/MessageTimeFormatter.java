@@ -7,10 +7,8 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
-/** Vremena se čuvaju u UTC-u, a u tekstu obaveštenja se prikazuju u lokalnoj zoni. */
 @Component
 public class MessageTimeFormatter {
-
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("dd.MM.yyyy. HH:mm");
 
     private final ZoneId zone;

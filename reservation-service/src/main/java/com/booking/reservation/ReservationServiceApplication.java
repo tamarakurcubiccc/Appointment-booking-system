@@ -11,7 +11,6 @@ import org.springframework.data.web.config.EnableSpringDataWebSupport;
 @EnableSpringDataWebSupport(pageSerializationMode = EnableSpringDataWebSupport.PageSerializationMode.VIA_DTO)
 @ComponentScan(basePackages = {"com.booking.reservation", "com.booking.common"})
 public class ReservationServiceApplication {
-
     public static void main(String[] args) {
         SpringApplication.run(ReservationServiceApplication.class, args);
     }

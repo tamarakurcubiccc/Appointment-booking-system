@@ -12,18 +12,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Kreira početni administratorski nalog pri pokretanju, ako ga nema.
- *
- * <p>Nalog je odmah aktiviran: aktivacioni e-mail bi bio poslat na adresu koju u razvojnom
- * okruženju niko ne čita, pa administrator ne bi mogao da se prijavi.
- *
- * <p>Pokretanje je idempotentno - postojeći nalog se ne menja, pa restart ne vraća
- * promenjenu lozinku ni ulogu na početno stanje.
- */
 @Component
 public class AdminAccountInitializer implements ApplicationRunner {
-
     private static final Logger log = LoggerFactory.getLogger(AdminAccountInitializer.class);
 
     private final UserRepository repository;

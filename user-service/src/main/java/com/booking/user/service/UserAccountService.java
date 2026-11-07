@@ -34,7 +34,6 @@ import java.util.UUID;
 
 @Service
 public class UserAccountService {
-
     private static final Logger log = LoggerFactory.getLogger(UserAccountService.class);
 
     private static final SecureRandom RANDOM = new SecureRandom();
@@ -60,10 +59,6 @@ public class UserAccountService {
         this.tokenProperties = tokenProperties;
     }
 
-    /**
-     * Registracija ne vraća pristupni token - nalog prvo mora da potvrdi e-mail adresu.
-     * Aktivacioni token putuje u događaju do notification-service, koji šalje e-mail.
-     */
     @Transactional
     public UserResponse register(RegisterRequest request) {
         if (repository.existsByEmailIgnoreCase(request.email())) {
@@ -72,7 +67,6 @@ public class UserAccountService {
 
         Role role = request.role() == null ? Role.CLIENT : request.role();
         if (role == Role.ADMIN) {
-            // ADMIN ulogu dodeljuje samo drugi ADMIN kroz PUT /api/users/{id}/role
             throw ApiException.forbidden("ADMIN uloga ne može da se dodeli prilikom samostalne registracije");
         }
 
@@ -94,7 +88,6 @@ public class UserAccountService {
         return UserResponse.from(user);
     }
 
-    /** Nakon aktivacije korisnik je odmah prijavljen - nema potrebe da se loguje ponovo. */
     @Transactional
     public AuthResponse activate(String token) {
         var accountToken = usableToken(token, TokenType.ACTIVATION, "Aktivacioni token");
@@ -117,8 +110,7 @@ public class UserAccountService {
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw ApiException.unauthorized("Pogrešna e-mail adresa ili lozinka");
         }
-        // Dve različite poruke za dva različita stanja - korisnik treba da zna da li da
-        // potraži aktivacioni e-mail ili da se obrati administratoru.
+
         if (!user.isActivated()) {
             throw ApiException.forbidden("Nalog nije aktiviran - proverite aktivacioni link u e-mailu");
         }
@@ -130,10 +122,6 @@ public class UserAccountService {
                 UserResponse.from(user));
     }
 
-    /**
-     * Odgovor je isti bez obzira na to da li nalog postoji. Razlikovanje bi od ovog
-     * endpointa napravilo alat za proveru koje su e-mail adrese registrovane.
-     */
     @Transactional
     public void requestPasswordReset(PasswordResetRequest request) {
         var existing = repository.findByEmailIgnoreCase(request.email());
@@ -185,11 +173,6 @@ public class UserAccountService {
         return UserResponse.from(user);
     }
 
-    /**
-     * Ukidanje i vraćanje pristupa. Administrator ne može da deaktivira sopstveni nalog -
-     * ako je jedini administrator, time bi zaključao sistem i nikome ne bi ostao način
-     * da pristup vrati.
-     */
     @Transactional
     public UserResponse setEnabled(UUID id, boolean enabled, UUID callerId) {
         if (id.equals(callerId)) {
@@ -214,7 +197,6 @@ public class UserAccountService {
         return accountToken;
     }
 
-    /** 256 bita slučajnosti iz SecureRandom-a - token se ne može predvideti iz prethodnih. */
     private AccountToken createToken(UUID userId, TokenType type, Duration ttl) {
         byte[] bytes = new byte[32];
         RANDOM.nextBytes(bytes);

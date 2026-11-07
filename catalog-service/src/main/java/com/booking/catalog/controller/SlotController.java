@@ -31,7 +31,6 @@ import java.util.UUID;
 @RequestMapping("/api")
 @Tag(name = "Dostupnost")
 public class SlotController {
-
     private final AvailabilityService service;
 
     public SlotController(AvailabilityService service) {

@@ -6,11 +6,6 @@ import com.booking.loyalty.entity.RewardStatus;
 import java.time.Instant;
 import java.util.UUID;
 
-/**
- * @param status   Zapisan status; nagrada kojoj je rok prošao prikazuje se kao EXPIRED
- *                 i bez pozadinskog posla koji bi menjao kolonu.
- * @param usable   Može li da se iskoristi u ovom trenutku.
- */
 public record LoyaltyRewardResponse(
         UUID id,
         UUID clientId,

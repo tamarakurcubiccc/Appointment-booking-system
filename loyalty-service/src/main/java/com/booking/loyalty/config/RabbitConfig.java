@@ -13,17 +13,8 @@ import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/**
- * AMQP topologija ovog servisa. Isti događaji o rezervacijama idu i u notification-service:
- * topic exchange ih dostavlja u oba reda, pa servisi ne znaju jedan za drugog.
- *
- * <p>Dead-letter exchange je sopstveni, a ne onaj koji koristi notification-service.
- * Deljenje jednog DLX-a znači da bi svaki DLQ skupljao i tuđe neuspehe, jer poruka pri
- * dead-letteringu zadržava originalni routing key.
- */
 @Configuration
 public class RabbitConfig {
-
     public static final String RESERVATION_CREATED_QUEUE = "loyalty.reservation-created";
     public static final String RESERVATION_CANCELLED_QUEUE = "loyalty.reservation-cancelled";
     public static final String DEAD_LETTER_QUEUE = "loyalty.dlq";
@@ -72,10 +63,6 @@ public class RabbitConfig {
         return BindingBuilder.bind(loyaltyDeadLetterQueue()).to(loyaltyDeadLetterExchange()).with("#");
     }
 
-    /**
-     * Konverter koristi ObjectMapper koji je konfigurisao Spring Boot; podrazumevani
-     * konstruktor pravi mapper bez JavaTimeModule-a i Instant polja bi pucala.
-     */
     @Bean
     public MessageConverter jsonMessageConverter(ObjectMapper objectMapper) {
         var converter = new Jackson2JsonMessageConverter(objectMapper);
