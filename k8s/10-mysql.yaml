@@ -1,0 +1,527 @@
+# ---------------------------------------------------------------------------
+# Database per service: five independent MySQL instances, one per service, so no
+# service can reach into another one's schema even by accident.
+#
+# StatefulSet rather than Deployment: a database needs a stable name and its own
+# volume that survives a restart, and volumeClaimTemplates give exactly that. The
+# Services are headless (clusterIP: None) - there is nothing to load balance in front
+# of a single instance, and the pod gets a stable DNS name of its own.
+#
+# One replica each. Real replication would need an operator; this is a development
+# cluster and a single instance keeps it honest about what it actually provides.
+# ---------------------------------------------------------------------------
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-user
+  namespace: appointment-booking
+  labels:
+    app: mysql-user
+    app.kubernetes.io/part-of: appointment-booking
+spec:
+  clusterIP: None
+  selector:
+    app: mysql-user
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: 3306
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql-user
+  namespace: appointment-booking
+  labels:
+    app: mysql-user
+    app.kubernetes.io/part-of: appointment-booking
+spec:
+  serviceName: mysql-user
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql-user
+  template:
+    metadata:
+      labels:
+        app: mysql-user
+        app.kubernetes.io/part-of: appointment-booking
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.4
+          ports:
+            - containerPort: 3306
+          env:
+            - name: MYSQL_DATABASE
+              value: "user_db"
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: booking-secrets
+                  key: DB_USER
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: booking-secrets
+                  key: DB_PASSWORD
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: booking-secrets
+                  key: MYSQL_ROOT_PASSWORD
+          # The probe goes over TCP (-h 127.0.0.1), not the local socket: the socket
+          # exists before the server accepts network connections, so a socket probe
+          # would report ready too early and the services would fail to connect.
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - mysqladmin ping -h 127.0.0.1 -u root -p"$MYSQL_ROOT_PASSWORD" --silent
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            # First start initialises the data directory and takes far longer than later ones.
+            failureThreshold: 18
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - mysqladmin ping -h 127.0.0.1 -u root -p"$MYSQL_ROOT_PASSWORD" --silent
+            initialDelaySeconds: 120
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: 320Mi
+              cpu: 100m
+            limits:
+              memory: 1Gi
+              cpu: "1"
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-catalog
+  namespace: appointment-booking
+  labels:
+    app: mysql-catalog
+    app.kubernetes.io/part-of: appointment-booking
+spec:
+  clusterIP: None
+  selector:
+    app: mysql-catalog
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: 3306
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql-catalog
+  namespace: appointment-booking
+  labels:
+    app: mysql-catalog
+    app.kubernetes.io/part-of: appointment-booking
+spec:
+  serviceName: mysql-catalog
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql-catalog
+  template:
+    metadata:
+      labels:
+        app: mysql-catalog
+        app.kubernetes.io/part-of: appointment-booking
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.4
+          ports:
+            - containerPort: 3306
+          env:
+            - name: MYSQL_DATABASE
+              value: "catalog_db"
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: booking-secrets
+                  key: DB_USER
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: booking-secrets
+                  key: DB_PASSWORD
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: booking-secrets
+                  key: MYSQL_ROOT_PASSWORD
+          # The probe goes over TCP (-h 127.0.0.1), not the local socket: the socket
+          # exists before the server accepts network connections, so a socket probe
+          # would report ready too early and the services would fail to connect.
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - mysqladmin ping -h 127.0.0.1 -u root -p"$MYSQL_ROOT_PASSWORD" --silent
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            # First start initialises the data directory and takes far longer than later ones.
+            failureThreshold: 18
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - mysqladmin ping -h 127.0.0.1 -u root -p"$MYSQL_ROOT_PASSWORD" --silent
+            initialDelaySeconds: 120
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: 320Mi
+              cpu: 100m
+            limits:
+              memory: 1Gi
+              cpu: "1"
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-reservation
+  namespace: appointment-booking
+  labels:
+    app: mysql-reservation
+    app.kubernetes.io/part-of: appointment-booking
+spec:
+  clusterIP: None
+  selector:
+    app: mysql-reservation
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: 3306
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql-reservation
+  namespace: appointment-booking
+  labels:
+    app: mysql-reservation
+    app.kubernetes.io/part-of: appointment-booking
+spec:
+  serviceName: mysql-reservation
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql-reservation
+  template:
+    metadata:
+      labels:
+        app: mysql-reservation
+        app.kubernetes.io/part-of: appointment-booking
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.4
+          ports:
+            - containerPort: 3306
+          env:
+            - name: MYSQL_DATABASE
+              value: "reservation_db"
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: booking-secrets
+                  key: DB_USER
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: booking-secrets
+                  key: DB_PASSWORD
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: booking-secrets
+                  key: MYSQL_ROOT_PASSWORD
+          # The probe goes over TCP (-h 127.0.0.1), not the local socket: the socket
+          # exists before the server accepts network connections, so a socket probe
+          # would report ready too early and the services would fail to connect.
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - mysqladmin ping -h 127.0.0.1 -u root -p"$MYSQL_ROOT_PASSWORD" --silent
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            # First start initialises the data directory and takes far longer than later ones.
+            failureThreshold: 18
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - mysqladmin ping -h 127.0.0.1 -u root -p"$MYSQL_ROOT_PASSWORD" --silent
+            initialDelaySeconds: 120
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: 320Mi
+              cpu: 100m
+            limits:
+              memory: 1Gi
+              cpu: "1"
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-notification
+  namespace: appointment-booking
+  labels:
+    app: mysql-notification
+    app.kubernetes.io/part-of: appointment-booking
+spec:
+  clusterIP: None
+  selector:
+    app: mysql-notification
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: 3306
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql-notification
+  namespace: appointment-booking
+  labels:
+    app: mysql-notification
+    app.kubernetes.io/part-of: appointment-booking
+spec:
+  serviceName: mysql-notification
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql-notification
+  template:
+    metadata:
+      labels:
+        app: mysql-notification
+        app.kubernetes.io/part-of: appointment-booking
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.4
+          ports:
+            - containerPort: 3306
+          env:
+            - name: MYSQL_DATABASE
+              value: "notification_db"
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: booking-secrets
+                  key: DB_USER
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: booking-secrets
+                  key: DB_PASSWORD
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: booking-secrets
+                  key: MYSQL_ROOT_PASSWORD
+          # The probe goes over TCP (-h 127.0.0.1), not the local socket: the socket
+          # exists before the server accepts network connections, so a socket probe
+          # would report ready too early and the services would fail to connect.
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - mysqladmin ping -h 127.0.0.1 -u root -p"$MYSQL_ROOT_PASSWORD" --silent
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            # First start initialises the data directory and takes far longer than later ones.
+            failureThreshold: 18
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - mysqladmin ping -h 127.0.0.1 -u root -p"$MYSQL_ROOT_PASSWORD" --silent
+            initialDelaySeconds: 120
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: 320Mi
+              cpu: 100m
+            limits:
+              memory: 1Gi
+              cpu: "1"
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-loyalty
+  namespace: appointment-booking
+  labels:
+    app: mysql-loyalty
+    app.kubernetes.io/part-of: appointment-booking
+spec:
+  clusterIP: None
+  selector:
+    app: mysql-loyalty
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: 3306
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql-loyalty
+  namespace: appointment-booking
+  labels:
+    app: mysql-loyalty
+    app.kubernetes.io/part-of: appointment-booking
+spec:
+  serviceName: mysql-loyalty
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql-loyalty
+  template:
+    metadata:
+      labels:
+        app: mysql-loyalty
+        app.kubernetes.io/part-of: appointment-booking
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.4
+          ports:
+            - containerPort: 3306
+          env:
+            - name: MYSQL_DATABASE
+              value: "loyalty_db"
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: booking-secrets
+                  key: DB_USER
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: booking-secrets
+                  key: DB_PASSWORD
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: booking-secrets
+                  key: MYSQL_ROOT_PASSWORD
+          # The probe goes over TCP (-h 127.0.0.1), not the local socket: the socket
+          # exists before the server accepts network connections, so a socket probe
+          # would report ready too early and the services would fail to connect.
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - mysqladmin ping -h 127.0.0.1 -u root -p"$MYSQL_ROOT_PASSWORD" --silent
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            # First start initialises the data directory and takes far longer than later ones.
+            failureThreshold: 18
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - mysqladmin ping -h 127.0.0.1 -u root -p"$MYSQL_ROOT_PASSWORD" --silent
+            initialDelaySeconds: 120
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: 320Mi
+              cpu: 100m
+            limits:
+              memory: 1Gi
+              cpu: "1"
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 1Gi

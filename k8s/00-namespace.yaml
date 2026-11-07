@@ -1,0 +1,10 @@
+# ---------------------------------------------------------------------------
+# Everything lives in one namespace, so the whole system can be removed with
+#   kubectl delete namespace appointment-booking
+# ---------------------------------------------------------------------------
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: appointment-booking
+  labels:
+    app.kubernetes.io/part-of: appointment-booking

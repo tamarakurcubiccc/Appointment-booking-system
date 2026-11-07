@@ -1,0 +1,42 @@
+# ---------------------------------------------------------------------------
+# Non-secret configuration shared by every service. The same environment variables
+# the Docker Compose stack passes, so the images are identical in both environments
+# and nothing is baked into them.
+# ---------------------------------------------------------------------------
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: booking-config
+  namespace: appointment-booking
+  labels:
+    app.kubernetes.io/part-of: appointment-booking
+data:
+  # Service discovery. Eureka is kept in Kubernetes rather than replaced by plain DNS:
+  # the services already register with it, and running the same mechanism in both
+  # environments means there is one behaviour to reason about, not two.
+  EUREKA_URL: "http://discovery-server:8761/eureka/"
+
+  # MySQL always listens on 3306 inside the cluster; each service gets its own host
+  # and database name from its own Deployment.
+  DB_PORT: "3306"
+  DDL_AUTO: "update"
+
+  JWT_ISSUER: "appointment-booking-system"
+
+  RABBITMQ_HOST: "rabbitmq"
+  RABBITMQ_PORT: "5672"
+
+  MAIL_HOST: "mailpit"
+  MAIL_PORT: "1025"
+  MAIL_ENABLED: "true"
+  MAIL_FROM: "no-reply@appointment-booking.local"
+  NOTIFICATIONS_TIME_ZONE: "Europe/Belgrade"
+
+  # Links inside the e-mails point at the Ingress host, not at a pod.
+  ACTIVATION_BASE_URL: "http://appointment-booking.local/api/auth/activate"
+  PASSWORD_RESET_BASE_URL: "http://appointment-booking.local/api/auth/reset-password"
+
+  CORS_ALLOWED_ORIGINS: "http://appointment-booking.local,http://localhost:3000,http://localhost:5173"
+
+  ADMIN_EMAIL: "admin@appointment-booking.local"
+  ADMIN_FULL_NAME: "Administrator"
